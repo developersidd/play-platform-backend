@@ -1,0 +1,17 @@
+{
+  "name": "chai-aur-code-youtube-clone",
+  "version": "1.0.0",
+  "description": "Youtube clone with mern",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "javascript",
+    "node",
+    "mongoose",
+    "express"
+  ],
+  "author": "AB Siddik",
+  "license": "ISC"
+}
