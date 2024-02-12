@@ -1,4 +1,20 @@
 {
+  "rules": {
+    "no-console": "off",
+    "import/extensions": [
+      "error",
+      "always",
+      {
+        "ignorePackages": true
+      }
+    ],
+    "import/no-extraneous-dependencies": [
+      "error",
+      {
+        "devDependencies": true
+      }
+    ] // This configuration allows for dependencies listed in devDependencies to be considered as non-extraneous. 
+  },
   "extends": [
     "airbnb-base",
     "prettier"
