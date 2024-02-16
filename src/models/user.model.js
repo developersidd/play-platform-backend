@@ -1,0 +1,108 @@
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
+
+const userSchema = new mongoose.Schema(
+  {
+    username: {
+      type: String,
+      required: [true, "Username is required"],
+      unique: true,
+      lowercase: true,
+      trim: true,
+      index: true, // enabling searching ,
+    },
+    fullName: {
+      type: String,
+      required: [true, "FullName is required"],
+      trim: true,
+      index: true,
+    },
+    email: {
+      type: String,
+      required: [true, "Email is required"],
+      unique: true,
+      validate: {
+        validator(v) {
+          return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(v);
+        },
+        message: "Please provide a valid email address",
+      },
+      trim: true,
+      lowercase: true,
+    },
+
+    avatar: {
+      type: String,
+      required: [true, "Avatar is required"],
+    },
+
+    coverImage: {
+      type: String,
+    },
+    watchHistory: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Video",
+      },
+    ],
+    password: {
+      type: String,
+      select: false, // this will hide the password field when we retrieve data from database
+      required: [true, "Password is required"],
+    },
+
+    refreshToken: {
+      type: String,
+      required: [true, "Password is required"],
+    },
+  },
+  { timestamps: true }
+);
+
+userSchema.pre("save", async function (next) {
+  // hash password using bcrypt
+  /* 
+  isModified("password"): This checks whether the "password" field of the document has been modified since it was last saved to the database. If the "password" field has not been modified, it returns false, indicating that there's no need to re-hash the password or perform any additional processing related to password modification.
+  */
+  if (!this.isModified("password")) return next();
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
+});
+
+// method to compare a plain text password with the encrypted one in the database
+userSchema.methods.isPasswordCorrect = async function (password) {
+  const isMatched = await bcrypt.compare(password, this.password);
+  return isMatched;
+};
+
+// crate jwt token
+userSchema.methods.generateAccessToken = function () {
+  return jwt.sign(
+    {
+      id: this._id,
+      email: this.email,
+      fullName: this.fullName,
+      username: this.username,
+    },
+    process.env.ACCESS_TOKEN_SECRET,
+    {
+      expiresIn: process.env.ACCESS_TOKEN_EXPIRY,
+    }
+  );
+};
+userSchema.methods.generateRefreshToken = function () {
+  return jwt.sign(
+    {
+      id: this._id,
+    },
+    process.env.REFRESH_TOKEN_SECRET,
+    {
+      expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
+    }
+  );
+};
+
+const User = mongoose.model("User", userSchema);
+export default User;

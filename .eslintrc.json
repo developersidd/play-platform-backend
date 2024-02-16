@@ -1,5 +1,8 @@
 {
   "rules": {
+    "func-names": "off",
+    "consistent-return": "off",
+    "no-underscore-dangle": "off",
     "no-console": "off",
     "import/extensions": [
       "error",
