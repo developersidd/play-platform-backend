@@ -36,9 +36,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Avatar is required"],
     },
-
+    
     coverImage: {
       type: String,
+      required: [true, "Cover Image is required"],
     },
     watchHistory: [
       {
@@ -54,12 +55,12 @@ const userSchema = new mongoose.Schema(
 
     refreshToken: {
       type: String,
-      required: [true, "Password is required"],
     },
   },
   { timestamps: true }
 );
 
+// hash password before saving to database
 userSchema.pre("save", async function (next) {
   // hash password using bcrypt
   /* 
@@ -92,6 +93,7 @@ userSchema.methods.generateAccessToken = function () {
     }
   );
 };
+// create refresh token
 userSchema.methods.generateRefreshToken = function () {
   return jwt.sign(
     {

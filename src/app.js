@@ -3,6 +3,9 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 
+// import Routes
+import userRouter from "./routes/user.routes.js";
+
 // App Initialization
 const app = express();
 
@@ -13,5 +16,9 @@ app.use(express.urlencoded({ limit: "20kb" }));
 app.use(express.static("public"));
 app.use(cors({ credentials: true, origin: process.env.CORS_ORIGIN }));
 app.use(cookieParser());
+// routes
+app.use("/api/v1/users", userRouter);
+
+
 
 export default app;

@@ -5,7 +5,7 @@ class ApiError extends Error {
   constructor(
     statusCode,
     message = "Something went wrong",
-    errors = [],
+    errors = [], // Represents an array of additional errors or error details.
     stack = ""
   ) {
     super(message);
@@ -14,7 +14,7 @@ class ApiError extends Error {
     this.errors = errors;
     this.message = message;
     this.success = false;
-
+    // If stack is provided, use it. Otherwise, capture the stack trace.
     if (stack) {
       this.stack = stack;
     } else {
