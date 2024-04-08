@@ -36,10 +36,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, "Avatar is required"],
     },
-    
+
     coverImage: {
       type: String,
-      required: [true, "Cover Image is required"],
+      // required: [true, "Cover Image is required"],
     },
     watchHistory: [
       {
@@ -49,7 +49,9 @@ const userSchema = new mongoose.Schema(
     ],
     password: {
       type: String,
+      /*
       select: false, // this will hide the password field when we retrieve data from database
+      */
       required: [true, "Password is required"],
     },
 
@@ -82,7 +84,7 @@ userSchema.methods.isPasswordCorrect = async function (password) {
 userSchema.methods.generateAccessToken = function () {
   return jwt.sign(
     {
-      id: this._id,
+      _id: this._id,
       email: this.email,
       fullName: this.fullName,
       username: this.username,
@@ -97,7 +99,7 @@ userSchema.methods.generateAccessToken = function () {
 userSchema.methods.generateRefreshToken = function () {
   return jwt.sign(
     {
-      id: this._id,
+      _id: this._id,
     },
     process.env.REFRESH_TOKEN_SECRET,
     {
