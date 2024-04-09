@@ -1,9 +1,15 @@
+import jwt from "jsonwebtoken";
 import User from "../models/user.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
 import generateAccessAndRefreshToken from "../utils/generateAndSaveAccessAndRefreshToken.js";
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: true,
+};
 
 const registerUser = asyncHandler(async (req, res, next) => {
   /* Steps to register user */
@@ -110,8 +116,7 @@ const loginUser = asyncHandler(async (req, res, next) => {
 
   const { username, email, password } = req.body || {};
   // check if all required fields are provided
-  const searchingField = username || email;
-  if (!searchingField || !password) {
+  if (!(username || email) || !password) {
     throw new ApiError(400, "Please provide all required fields");
   }
   // check email with regEx
@@ -134,21 +139,6 @@ const loginUser = asyncHandler(async (req, res, next) => {
   const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
     user?._id
   );
-  console.log("accessToken:", user?.refreshToken);
-
-  // set refresh token in cookie
-  const cookieOptions = {
-    httpOnly: true,
-    // cookie is not accessible via client-side script
-    // path: "/api/v1/users/refreshToken",
-    /*
-     The cookie will only be sent to the server for requests that match this path. In your case, the cookie will only be sent for requests made to the path "/api/v1/users/refreshToken". This is useful if you want the cookie to be specific to certain routes or sections of your application.
-      */
-    secure: true,
-    /* 
-    cookie will be sent only via HTTPS. It's a security measure to ensure that the cookie data is encrypted during transit between the client and the server. Setting secure to true ensures that the cookie is only sent over secure connections
-     */
-  };
 
   res
     .status(200)
@@ -173,10 +163,6 @@ const logoutUser = asyncHandler(async (req, res) => {
       new: true,
     }
   );
-  const cookieOptions = {
-    httpOnly: true,
-    secure: true,
-  };
   // clear the cookies
   res
     .status(200)
@@ -185,4 +171,41 @@ const logoutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "User logged out successfully"));
 });
 
-export { loginUser, logoutUser, registerUser };
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const incomingRefreshToken =
+    req.cookies?.refreshToken || req.body?.refreshToken;
+  if (!incomingRefreshToken) {
+    throw new ApiError(401, "Unauthorized request");
+  }
+  try {
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+    const user = await User.findById(decodedToken?._id);
+    if (!user) {
+      throw new ApiError(401, "Invalid refresh token");
+    }
+    if (user?.refreshToken !== incomingRefreshToken) {
+      throw new ApiError(401, "Refresh token in expired or used");
+    }
+
+    const { accessToken, refreshToken } =
+      (await generateAccessAndRefreshToken(user?._id)) || {};
+    res
+      .status(200)
+      .cookie("accessToken", accessToken, cookieOptions)
+      .cookie("refreshToken", refreshToken, cookieOptions)
+      .json(
+        new ApiResponse(
+          200,
+          { accessToken, refreshToken },
+          "Access Token refreshed"
+        )
+      );
+  } catch (error) {
+    throw new ApiError(401, error.message || "Invalid refresh token");
+  }
+});
+
+export { loginUser, logoutUser, refreshAccessToken, registerUser };
