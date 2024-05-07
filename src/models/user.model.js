@@ -33,13 +33,31 @@ const userSchema = new mongoose.Schema(
     },
 
     avatar: {
-      type: String,
+      type: {
+        url: {
+          type: String,
+          required: [true, "Avatar URL is required"],
+        },
+        public_id: {
+          type: String,
+          required: [true, "Avatar public ID is required"],
+        },
+      },
       required: [true, "Avatar is required"],
     },
 
     coverImage: {
-      type: String,
-      // required: [true, "Cover Image is required"],
+      type: {
+        url: {
+          type: String,
+          required: [true, "Cover Image URL is required"],
+        },
+        public_id: {
+          type: String,
+          required: [true, "Cover Image public ID is required"],
+        },
+      },
+      required: [true, "Cover Image is required"],
     },
     watchHistory: [
       {

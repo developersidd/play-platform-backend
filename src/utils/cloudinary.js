@@ -15,15 +15,26 @@ const uploadOnCloudinary = async (localFilePath) => {
       folder: "youtube-clone",
       resource_type: "auto", // jpeg, png etc
     });
-    // file uploaded on cloudinary successfully, we can remove the local file
-    fs.unlinkSync(localFilePath);
+    /*    // file uploaded on cloudinary successfully, we can remove the local file
+    fs.unlinkSync(localFilePath); */
     return response;
   } catch (err) {
+    console.log(err);
+    // return null;
+  } finally {
     // remove the local file if something went wrong
     fs.unlinkSync(localFilePath);
-    console.log(err);
+  }
+};
+
+const deleteFromCloudinary = async (public_id) => {
+  try {
+    const res = await cloudinary.uploader.destroy(public_id);
+    return res;
+  } catch (error) {
+    console.log("error on deleting from cloudinary:", error);
     return null;
   }
 };
 
-export default uploadOnCloudinary;
+export { deleteFromCloudinary, uploadOnCloudinary };

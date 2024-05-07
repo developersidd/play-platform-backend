@@ -5,6 +5,7 @@
     "consistent-return": "off",
     "no-underscore-dangle": "off",
     "no-console": "off",
+    "camelcase": "off",
     "import/extensions": [
       "error",
       "always",
