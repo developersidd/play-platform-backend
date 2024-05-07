@@ -62,6 +62,7 @@ const registerUser = asyncHandler(async (req, res, next) => {
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar and Cover Image are required");
   }
+  
   // upload images on cloudinary
   const avatar = await uploadOnCloudinary(avatarLocalPath);
   const coverImage = await uploadOnCloudinary(coverImageLocalPath);
@@ -139,6 +140,12 @@ const loginUser = asyncHandler(async (req, res, next) => {
   const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
     user?._id
   );
+
+  user.refreshToken = refreshToken;
+  await user.save({
+    validateBeforeSave: false,
+  });
+
 
   res
     .status(200)
