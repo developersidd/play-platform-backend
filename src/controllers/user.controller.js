@@ -14,7 +14,7 @@ const cookieOptions = {
   secure: true,
 };
 
-const registerUser = asyncHandler(async (req, res, next) => {
+const registerUser = asyncHandler(async (req, res) => {
   /* Steps to register user */
   // 1. get user details from request body
   // 2. validate user details
@@ -86,8 +86,14 @@ const registerUser = asyncHandler(async (req, res, next) => {
     fullName,
     email,
     password,
-    avatar: avatar?.url,
-    coverImage: coverImage?.url,
+    avatar: {
+      public_id: avatar?.public_id,
+      url: avatar?.url,
+    },
+    coverImage: {
+      public_id: coverImage?.public_id,
+      url: coverImage?.url,
+    },
   });
 
   // check for user creation and remove password and refresh token from response
@@ -108,7 +114,7 @@ const registerUser = asyncHandler(async (req, res, next) => {
     .status(201)
     .json(new ApiResponse(200, createdUser, "User registered successfully"));
 });
-const loginUser = asyncHandler(async (req, res, next) => {
+const loginUser = asyncHandler(async (req, res) => {
   /* Steps to register user */
   // 1. get user details from request body
   // 2. validate user details
@@ -298,13 +304,13 @@ const updateAvatar = asyncHandler(async (req, res) => {
     {
       new: true,
     }
-  );
+  ).select("-password");
   if (!user) {
     throw new ApiError(500, "Error occurred while updating avatar");
   }
   // delete avatar from cloudinary
-  const res = await deleteFromCloudinary(reqUser?.avatar?.public_id);
-  console.log("res:", res);
+  const delRes = await deleteFromCloudinary(reqUser?.avatar?.public_id);
+  console.log("res:", delRes);
   return res
     .status(200)
     .json(new ApiResponse(200, user, "User avatar updated successfully"));
@@ -338,21 +344,92 @@ const updateCoverImage = asyncHandler(async (req, res) => {
     {
       new: true,
     }
-  );
+  ).select("-password");
   if (!user) {
     throw new ApiError(500, "Error occurred while updating cover Image");
   }
   // delete coverImage from cloudinary
-  const res = await deleteFromCloudinary(reqUser?.coverImage?.public_id);
-  console.log("res:", res);
+  const delRes = await deleteFromCloudinary(reqUser?.coverImage?.public_id);
+  console.log("res:", delRes);
   return res
     .status(200)
     .json(new ApiResponse(200, user, "User cover Image updated successfully"));
 });
 
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const { username } = req.params || {};
+  if (!username?.trim()) {
+    throw new ApiError(400, "Please provide username");
+  }
+  const channel = await User.aggregate([
+    {
+      $match: {
+        username: username?.toLowerCase(),
+      },
+    },
+    // calculate subscribers
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    // calculate subscribed to channels
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedChannels",
+      },
+    },
+    // calculate subscribers count and subscribed channels count and isSubscribed
+    {
+      $addFields: {
+        subscribersCount: { $size: "$subscribers" },
+        subscribedChannelsCount: { $size: "$subscribedChannels" },
+        isSubscribed: {
+          // $in: [req?.user?._id, "$subscribers.subscriber"],
+          $cond: {
+            if: {
+              $in: [req.user?._id, "$subscribers.subscriber"],
+            },
+            then: true,
+            else: false,
+          },
+        },
+      },
+    },
+    {
+      $project: {
+        email: 1,
+        fullName: 1,
+        username: 1,
+        avatar: 1,
+        coverImage: 1,
+        subscribersCount: 1,
+        subscribedChannelsCount: 1,
+        isSubscribed: 1,
+        createdAt: 1,
+      },
+    },
+  ]);
+
+  console.log("channel:", channel);
+  if (!channel?.length) {
+    throw new ApiError(404, "Channel does not exist");
+  }
+  return res
+    .status(200)
+    .json(new ApiResponse(200, channel[0], "Channel profile found"));
+});
+
 export {
   changeCurrentPassword,
   getCurrentUser,
+  getUserChannelProfile,
   loginUser,
   logoutUser,
   refreshAccessToken,
