@@ -349,7 +349,7 @@ const updateCoverImage = asyncHandler(async (req, res) => {
   if (!user) {
     throw new ApiError(500, "Error occurred while updating cover Image");
   }
-  // delete coverImage from cloudinary
+  // delete previous coverImage from cloudinary
   const delRes = await deleteFromCloudinary(reqUser?.coverImage?.public_id);
   console.log("res:", delRes);
   return res
@@ -485,12 +485,16 @@ const getWatchHistory = asyncHandler(async (req, res) => {
       },
     },
   ]);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user[0]?.watchHistory, "Watch history found"));
 });
 
 export {
   changeCurrentPassword,
   getCurrentUser,
   getUserChannelProfile,
+  getWatchHistory,
   loginUser,
   logoutUser,
   refreshAccessToken,
