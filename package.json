@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Youtube clone with Mern",
   "type": "module",
-  "main": "index.js",
+  "main": "index.js", 
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "nodemon src/index.js",

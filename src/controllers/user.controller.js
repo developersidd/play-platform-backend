@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { Types } from "mongoose";
 import User from "../models/user.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -385,7 +386,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         as: "subscribedChannels",
       },
     },
-    // calculate subscribers count and subscribed channels count and isSubscribed
+    // calculate subscribers and subscribed channels count and isSubscribed
     {
       $addFields: {
         subscribersCount: { $size: "$subscribers" },
@@ -424,6 +425,66 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, channel[0], "Channel profile found"));
+});
+
+// get user watch history
+
+const getWatchHistory = asyncHandler(async (req, res) => {
+  // you need to create a mongoDB Object Id to find by user id because agreegation works directly with mongoDB not used mongoose
+  const userId = new Types.ObjectId(req?.user?._id);
+  const user = await User.aggregate([
+    {
+      $match: {
+        _id: userId,
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "watchHistory",
+        foreignField: "_id",
+        as: "watchHistory",
+        /* populate: {
+          path: "owner",
+          model: "User",
+          select: "username avatar",
+        },
+        */
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    fullName: 1,
+                    username: 1,
+                    avatar: 1,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $set: {
+              owner: {
+                // $arrayElemtAt: ["$owner", 0],
+                $first: "$owner",
+              },
+            },
+          },
+          /* {
+            $project: {
+              title: 1,    
+            }
+          } */
+        ],
+      },
+    },
+  ]);
 });
 
 export {
