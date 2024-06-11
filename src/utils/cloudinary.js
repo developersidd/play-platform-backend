@@ -24,7 +24,7 @@ const uploadOnCloudinary = async (localFilePath) => {
   } finally {
     // remove the local file if something went wrong
     fs.unlinkSync(localFilePath);
-  }
+  } 
 };
 
 const deleteFromCloudinary = async (public_id) => {

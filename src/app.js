@@ -5,6 +5,7 @@ import express from "express";
 
 // import Routes
 import userRouter from "./routes/user.routes.js";
+import videoRouter from "./routes/video.routes.js";
 
 // App Initialization
 const app = express();
@@ -19,5 +20,5 @@ app.use(cors({ credentials: true, origin: process.env.CORS_ORIGIN }));
 app.use(cookieParser());
 // routes
 app.use("/api/v1/users", userRouter);
-
+app.use("/api/v1/videos", videoRouter);
 export default app;
