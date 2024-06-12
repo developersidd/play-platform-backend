@@ -1,5 +1,12 @@
 import express from "express";
-import { getAllVideos, publishVideo } from "../controllers/video.controller.js";
+import {
+  deleteVideo,
+  getAllVideos,
+  getVideoById,
+  publishVideo,
+  updateVideoById,
+  updateVideoPublishStatus,
+} from "../controllers/video.controller.js";
 import verifyJWT from "../middlewares/auth.middleware.js";
 import upload from "../middlewares/multer.middleware.js";
 
@@ -23,5 +30,15 @@ router
     publishVideo
   )
   .get(getAllVideos);
+
+// single video routes
+router
+  .route("/:id")
+  .get(getVideoById)
+  .delete(deleteVideo)
+  .patch(upload.single("thumbnail"), updateVideoById);
+
+// Toggle video publish status
+router.route("/toggle/publish/:id").patch(updateVideoPublishStatus);
 
 export default router;

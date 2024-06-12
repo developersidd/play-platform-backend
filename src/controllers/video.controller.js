@@ -60,7 +60,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
   const result = await Video.aggregatePaginate(aggregateQuery, options);
   console.log("result:", JSON.stringify(result, null, 2));
-  res.status(200).json(
+  return res.status(200).json(
     new ApiResponse(
       200,
       {
@@ -76,7 +76,53 @@ const getAllVideos = asyncHandler(async (req, res) => {
   );
 });
 
-//  Publish a video
+// Get video by id
+const getVideoById = asyncHandler(async (req, res) => {
+  const video = await Video.findById(req.params.id);
+  if (!video) {
+    throw new ApiError(404, "Video not found");
+  }
+  return res.status(200).json(new ApiResponse(200, video, "Video found"));
+});
+
+// Update video by id
+const updateVideoById = asyncHandler(async (req, res) => {
+  const { title, description } = req.body;
+  const thumbnailLocalPath = req.file?.path;
+  if (
+    [title, description, thumbnailLocalPath].every(
+      (value) => value?.trim() === ""
+    )
+  ) {
+    throw new ApiError(400, "Please provide All required fields");
+  }
+  const thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
+  if (!thumbnail?.public_id) {
+    throw new ApiError(500, "Failed to update thumbnail");
+  }
+  const video = await Video.findByIdAndUpdate(
+    req.params.id,
+    {
+      $set: {
+        title,
+        description,
+        thumbnail: {
+          url: thumbnail.secure_url,
+          public_id: thumbnail.public_id,
+        },
+      },
+    },
+    {
+      new: true,
+    }
+  );
+  if (!video) {
+    throw new ApiError(500, "Failed to update video");
+  }
+  return res.status(200).json(new ApiResponse(200, video, "Video updated"));
+});
+
+//  Publish video
 const publishVideo = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
   const videoLocalPath = (req.files?.videoFile ?? [])[0]?.path;
@@ -113,9 +159,46 @@ const publishVideo = asyncHandler(async (req, res) => {
     owner: req.user._id,
   });
   console.log("video:", video);
-  res
+  return res
     .status(201)
     .json(new ApiResponse(201, video, "Video published successfully"));
 });
 
-export { getAllVideos, publishVideo };
+// Delete video
+const deleteVideo = asyncHandler(async (req, res) => {
+  const video = await Video.findByIdAndDelete(req.params.id);
+  if (!video) {
+    throw new ApiError(500, "Failed to delete video");
+  }
+  return res.status(200).json(new ApiResponse(200, null, "Video deleted"));
+});
+
+// update video publish status
+const updateVideoPublishStatus = asyncHandler(async (req, res) => {
+  const video = await Video.findByIdAndUpdate(
+    req.params.id,
+    {
+      $set: {
+        isPublished: req.body.isPublished,
+      },
+    },
+    {
+      new: true,
+    }
+  );
+  if (!video) {
+    throw new ApiError(500, "Failed to update video publish status");
+  }
+  return res
+    .status(200)
+    .json(new ApiResponse(200, video, "Video publish status updated"));
+});
+
+export {
+  deleteVideo,
+  getAllVideos,
+  getVideoById,
+  publishVideo,
+  updateVideoById,
+  updateVideoPublishStatus,
+};
