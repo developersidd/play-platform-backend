@@ -31,7 +31,7 @@ router.post("/login", loginUser);
 // secured routes
 router.route("/logout").post(verifyJWT, logoutUser);
 router.route("/refresh-token").post(refreshAccessToken);
-router.route("/watch").get(verifyJWT, getWatchHistory);
+router.route("/history").get(verifyJWT, getWatchHistory);
 router.route("/c/:username").get(verifyJWT, getUserChannelProfile);
 router.route("/change-password").post(verifyJWT, changeCurrentPassword);
 router.route("/current-user").get(verifyJWT, getCurrentUser);
