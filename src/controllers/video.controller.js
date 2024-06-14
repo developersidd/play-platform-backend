@@ -11,7 +11,7 @@ import formatDuration from "../utils/formatDuration.js";
 const getAllVideos = asyncHandler(async (req, res) => {
   // Extract pagination parameters from query string
   const {
-    page = 3,
+    page = 1,
     limit = 10,
     sortBy = "createdAt",
     sortType = "desc",
