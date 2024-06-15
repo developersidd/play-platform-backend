@@ -81,13 +81,16 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
 // remove a video from a playlist
 const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
   const { playlistId, videoId } = req.params;
+
   if (!isValidObjectId(playlistId) || !isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid Playlist or Video Id");
   }
+
   // Check if video already exists in the playlist
   if (!(await Playlist.exists({ videos: videoId }))) {
     throw new ApiError(400, "Video doesn't exists in a playlist");
   }
+
   const playlist = await Playlist.findByIdAndUpdate(
     playlistId,
     {
@@ -97,26 +100,16 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
       new: true,
     }
   );
+
   if (!playlist) {
     throw new ApiError(404, "Playlist not found");
   }
+
   return res
     .status(200)
     .json(new ApiResponse(200, playlist, "Video removed from playlist"));
 });
 
-// delete a playlist
-const deletePlaylist = asyncHandler(async (req, res) => {
-  const { playlistId } = req.params;
-  if (!isValidObjectId(playlistId)) {
-    throw new ApiError(400, "Invalid Playlist Id");
-  }
-  const playlist = await Playlist.findByIdAndDelete(playlistId);
-  if (!playlist) {
-    throw new ApiError(404, "Playlist not found");
-  }
-  return res.status(200).json(new ApiResponse(200, [], "Playlist deleted"));
-});
 // update a playlist
 const updatePlaylist = asyncHandler(async (req, res) => {
   const { playlistId } = req.params;
@@ -143,6 +136,19 @@ const updatePlaylist = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, playlist, "Playlist updated"));
+});
+
+// delete a playlist
+const deletePlaylist = asyncHandler(async (req, res) => {
+  const { playlistId } = req.params;
+  if (!isValidObjectId(playlistId)) {
+    throw new ApiError(400, "Invalid Playlist Id");
+  }
+  const playlist = await Playlist.findByIdAndDelete(playlistId);
+  if (!playlist) {
+    throw new ApiError(404, "Playlist not found");
+  }
+  return res.status(200).json(new ApiResponse(200, [], "Playlist deleted"));
 });
 
 export {

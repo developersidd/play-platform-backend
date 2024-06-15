@@ -9,6 +9,7 @@ const createTweet = asyncHandler(async (req, res) => {
   if (!content?.trim()) {
     throw new ApiError(400, "Content is required");
   }
+
   const tweet = await Tweet.create({
     content,
     owner: req.user._id,
@@ -35,6 +36,10 @@ const updateTweet = asyncHandler(async (req, res) => {
   if (!isValidObjectId(tweetId)) {
     throw new ApiError(400, "Invalid Tweet Id");
   }
+  if (!content?.trim()) {
+    throw new ApiError(400, "Content is required");
+  }
+  
   const tweet = await Tweet.findByIdAndUpdate(
     tweetId,
     { $set: { content } },

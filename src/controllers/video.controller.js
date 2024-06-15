@@ -1,4 +1,4 @@
-import { Types } from "mongoose";
+import { Types, isValidObjectId } from "mongoose";
 import Video from "../models/video.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -19,9 +19,11 @@ const getAllVideos = asyncHandler(async (req, res) => {
   } = req.query || {};
   // search query
   const searchQuery = { isPublished: true };
-  if (userId) {
+  if (isValidObjectId(userId)) {
     const mongoId = new Types.ObjectId(userId);
     searchQuery.owner = mongoId;
+  } else {
+    throw new ApiError(400, "Invalid user id");
   }
   // sort query
   const sortQuery = {};
@@ -32,7 +34,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
   }
 
   // Create the aggregation pipeline
-  const aggregateQuery = Video.aggregate([
+  const aggregateQuery = await Video.aggregate([
     {
       $match: searchQuery,
     },
