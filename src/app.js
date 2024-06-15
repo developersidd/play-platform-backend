@@ -5,9 +5,10 @@ import express from "express";
 
 // import Routes
 import likeRouter from "./routes/like.routes.js";
+import playlist from "./routes/playlist.routes.js";
+import tweet from "./routes/tweet.routes.js";
 import userRouter from "./routes/user.routes.js";
 import videoRouter from "./routes/video.routes.js";
-
 // App Initialization
 const app = express();
 
@@ -23,4 +24,6 @@ app.use(cookieParser());
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/videos", videoRouter);
 app.use("/api/v1/likes", likeRouter);
+app.use("/api/v1/playlist", playlist);
+app.use("/api/v1/tweets", tweet);
 export default app;
