@@ -19,11 +19,12 @@ const getAllVideos = asyncHandler(async (req, res) => {
   } = req.query || {};
   // search query
   const searchQuery = { isPublished: true };
-  if (isValidObjectId(userId)) {
+  if (userId) {
+    if (!isValidObjectId(userId)) {
+      throw new ApiError(400, "Invalid User Id");
+    }
     const mongoId = new Types.ObjectId(userId);
     searchQuery.owner = mongoId;
-  } else {
-    throw new ApiError(400, "Invalid user id");
   }
   // sort query
   const sortQuery = {};

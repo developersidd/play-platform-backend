@@ -39,7 +39,7 @@ const updateTweet = asyncHandler(async (req, res) => {
   if (!content?.trim()) {
     throw new ApiError(400, "Content is required");
   }
-  
+
   const tweet = await Tweet.findByIdAndUpdate(
     tweetId,
     { $set: { content } },
@@ -63,7 +63,7 @@ const deleteTweet = asyncHandler(async (req, res) => {
   if (!tweet) {
     throw new ApiError(404, "Tweet not found");
   }
-  return res.status(200).json(new ApiResponse(200, tweet, "Tweet deleted"));
+  return res.status(200).json(new ApiResponse(200, null, "Tweet deleted"));
 });
 
 export { createTweet, deleteTweet, getUserTweets, updateTweet };
