@@ -1,5 +1,4 @@
 import jwt from "jsonwebtoken";
-import { Types } from "mongoose";
 import User from "../models/user.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -9,6 +8,7 @@ import {
   uploadOnCloudinary,
 } from "../utils/cloudinary.js";
 import generateAccessAndRefreshToken from "../utils/generateAndSaveAccessAndRefreshToken.js";
+import { createMongoId } from "../utils/mongodb.util.js";
 
 const cookieOptions = {
   httpOnly: true,
@@ -432,7 +432,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
 
 const getWatchHistory = asyncHandler(async (req, res) => {
   // you need to create a mongoDB Object Id to find by user id because agreegation works directly with mongoDB not used mongoose
-  const userId = new Types.ObjectId(req?.user?._id);
+  const userId = createMongoId(req?.user?._id);
   const user = await User.aggregate([
     {
       $match: {
@@ -492,8 +492,14 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user[0]?.watchHistory, "Watch history found"));
 });
 
+const getAllUsers = asyncHandler(async (req, res) => {
+  const users = await User.find({}).select("-password");
+  return res.status(200).json(new ApiResponse(200, users, "All users found"));
+});
+
 export {
   changeCurrentPassword,
+  getAllUsers,
   getCurrentUser,
   getUserChannelProfile,
   getWatchHistory,

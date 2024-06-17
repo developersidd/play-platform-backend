@@ -42,12 +42,14 @@ const userSchema = new mongoose.Schema(
           type: String,
           required: [true, "Avatar public ID is required"],
         },
+        _id: false,
       },
       required: [true, "Avatar is required"],
     },
 
     coverImage: {
       type: {
+        _id: false,
         url: {
           type: String,
           required: [true, "Cover Image URL is required"],
@@ -128,9 +130,4 @@ userSchema.methods.generateRefreshToken = function () {
 
 const User = mongoose.model("User", userSchema);
 
-
-
-
-
 export default User;
-

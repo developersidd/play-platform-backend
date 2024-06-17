@@ -3,6 +3,7 @@ import Subscription from "../models/subscription.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import { createMongoId } from "../utils/mongodb.util.js";
 
 const toggleSubscription = asyncHandler(async (req, res) => {
   const { channelId } = req.params;
@@ -30,7 +31,7 @@ const toggleSubscription = asyncHandler(async (req, res) => {
     subscriber: req.user._id,
     channel: channelId,
   });
-  
+
   return res
     .status(201)
     .json(new ApiResponse(201, subscription, "Subscribed successfully"));
@@ -41,8 +42,38 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
   const { channelId } = req.params;
   const { page, limit } = req.query || {};
 
+  if (!isValidObjectId(channelId)) {
+    throw new ApiError(400, "Invalid channel id");
+  }
+
   // paginate subscribers list query
-  const subscribersQuery = await Subscription.find({ channel: channelId });
+  const mongoChannelId = createMongoId(channelId);
+  const channelSubscribersQuery = Subscription.aggregate([
+    {
+      $match: { channel: mongoChannelId },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "subscriber",
+        foreignField: "_id",
+        as: "subscriber",
+      },
+    },
+    {
+      $addFields: {
+        subscriber: { $arrayElemAt: ["$subscriber", 0] },
+      },
+    },
+    {
+      $project: {
+        "subscriber.username": 1,
+        "subscriber.email": 1,
+        "subscriber.avatar": 1,
+        channel: 1,
+      },
+    },
+  ]);
 
   const options = {
     page: parseInt(page, 10) || 1,
@@ -50,7 +81,7 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
   };
 
   const result = await Subscription.aggregatePaginate(
-    subscribersQuery,
+    channelSubscribersQuery,
     options
   );
 
@@ -77,10 +108,38 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
   const { subscriberId } = req.params;
   const { page, limit } = req.query || {};
 
+  if (!isValidObjectId(subscriberId)) {
+    throw new ApiError(400, "Invalid subscriber id");
+  }
+
   // paginate subscribed channels list query
-  const subscribersQuery = await Subscription.find({
-    subscriber: subscriberId,
-  });
+  const mongoSubscriberId = createMongoId(subscriberId);
+  const subscribedChannelsQuery = Subscription.aggregate([
+    {
+      $match: { subscriber: mongoSubscriberId },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "channel",
+        foreignField: "_id",
+        as: "channel",
+      },
+    },
+    {
+      $addFields: {
+        channel: { $arrayElemAt: ["$channel", 0] },
+      },
+    },
+    {
+      $project: {
+        "channel.username": 1,
+        "channel.email": 1,
+        "channel.avatar": 1,
+        subscriber: 1,
+      },
+    },
+  ]);
 
   const options = {
     page: parseInt(page, 10) || 1,
@@ -88,7 +147,7 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
   };
 
   const result = await Subscription.aggregatePaginate(
-    subscribersQuery,
+    subscribedChannelsQuery,
     options
   );
 
