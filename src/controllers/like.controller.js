@@ -25,7 +25,10 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
     await Like.findByIdAndDelete(existingLike._id);
     return res.status(200).json(new ApiResponse(200, null, "Disliked"));
   }
-  const videoLike = await Like.create({ video: videoId, likedBy: req.user._id });
+  const videoLike = await Like.create({
+    video: videoId,
+    likedBy: req.user._id,
+  });
 
   return res.status(200).json(new ApiResponse(200, videoLike, "Liked"));
 });
@@ -47,7 +50,10 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
     await Like.findByIdAndDelete(existingLike._id);
     return res.status(200).json(new ApiResponse(200, null, "Disliked"));
   }
-   const commentLike =await Like.create({ comment: commentId, likedBy: req.user._id });
+  const commentLike = await Like.create({
+    comment: commentId,
+    likedBy: req.user._id,
+  });
 
   return res.status(200).json(new ApiResponse(200, commentLike, "Liked"));
 });
@@ -70,7 +76,10 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
     await Like.findByIdAndDelete(existingLike._id);
     return res.status(200).json(new ApiResponse(200, null, "Disliked"));
   }
-  const tweetLike = await Like.create({ tweet: tweetId, likedBy: req.user._id });
+  const tweetLike = await Like.create({
+    tweet: tweetId,
+    likedBy: req.user._id,
+  });
   return res.status(200).json(new ApiResponse(200, tweetLike, "Liked"));
 });
 
@@ -92,10 +101,14 @@ const getLikedVideos = asyncHandler(async (req, res) => {
         as: "video",
       },
     },
-    // { $unwind: "$video" },
+    {
+      $addFields: {
+        video: { $first: "$video" },
+      },
+    },
   ]);
   console.log(videos);
-  return res.status(200).json(new ApiResponse(200, "Success", videos));
+  return res.status(200).json(new ApiResponse(200, videos, "Success"));
 });
 
 export { getLikedVideos, toggleCommentLike, toggleTweetLike, toggleVideoLike };

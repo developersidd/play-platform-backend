@@ -11,7 +11,7 @@ const likeSchema = new Schema(
       ref: "User",
       required: [true, "User Id is required"],
     },
-
+    
     video: {
       type: Types.ObjectId,
       ref: "Video",

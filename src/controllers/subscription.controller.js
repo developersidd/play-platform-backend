@@ -62,7 +62,7 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     },
     {
       $addFields: {
-        subscriber: { $arrayElemAt: ["$subscriber", 0] },
+        subscriber: { $first: "$subscriber" },
       },
     },
     {
@@ -128,7 +128,7 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
     },
     {
       $addFields: {
-        channel: { $arrayElemAt: ["$channel", 0] },
+        channel: { $first: "$channel" },
       },
     },
     {
