@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import LoginHistory from "../models/loginHistory.model.js";
 import User from "../models/user.model.js";
 import ApiError from "../utils/ApiError.js";
 import asyncHandler from "../utils/asyncHandler.js";
@@ -18,7 +19,10 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
     const user = await User.findById(decodedToken?._id).select(
       "-password -refreshToken"
     );
-    if (!user) {
+    const loginHistory = await LoginHistory.findOne({
+      $and: [{ user: user?._id }, { token: accessToken }],
+    });
+    if (!user || !loginHistory) {
       throw new ApiError(401, "Invalid Access Token");
     }
     req.user = user;

@@ -1,4 +1,6 @@
 import jwt from "jsonwebtoken";
+
+import LoginHistory from "../models/loginHistory.model.js";
 import User from "../models/user.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -9,6 +11,7 @@ import {
 } from "../utils/cloudinary.js";
 import generateAccessAndRefreshToken from "../utils/generateAndSaveAccessAndRefreshToken.js";
 import { createMongoId } from "../utils/mongodb.util.js";
+import { createHistory } from "./loginHistory.controller.js";
 
 const cookieOptions = {
   httpOnly: true,
@@ -157,6 +160,11 @@ const loginUser = asyncHandler(async (req, res) => {
     validateBeforeSave: false,
   });
 
+  const loginHistory = await createHistory(req, res, {
+    token: accessToken,
+    userId: user?._id,
+  });
+  console.log("loginHistory:", loginHistory);
   return res
     .status(200)
     .cookie("accessToken", accessToken, cookieOptions)
@@ -172,6 +180,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
 // logout user
 const logoutUser = asyncHandler(async (req, res) => {
+  const { id: loginHistoryId } = req.params;
   await User.findByIdAndUpdate(
     req?.user?._id,
     {
@@ -181,6 +190,7 @@ const logoutUser = asyncHandler(async (req, res) => {
       new: true,
     }
   );
+  await LoginHistory.findByIdAndDelete(loginHistoryId);
   // clear the cookies
   return res
     .status(200)
