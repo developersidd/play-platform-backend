@@ -46,6 +46,7 @@ const createHistory = asyncHandler(async (req, res, { token, userId }) => {
       new: true,
     }
   );
+  console.log("loginHistory:", loginHistory)
   return loginHistory;
 });
 

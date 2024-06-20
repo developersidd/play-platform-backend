@@ -74,7 +74,16 @@ const userSchema = new mongoose.Schema(
       */
       required: [true, "Password is required"],
     },
-
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verificationDigits: {
+      type: String,
+    },
+    resetToken: {
+      type: String,
+    },
     refreshToken: {
       type: String,
     },

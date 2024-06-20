@@ -22,10 +22,12 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
     const loginHistory = await LoginHistory.findOne({
       $and: [{ user: user?._id }, { token: accessToken }],
     });
+    console.log("loginHistory from auth:", loginHistory);
     if (!user || !loginHistory) {
       throw new ApiError(401, "Invalid Access Token");
     }
-    req.user = user;
+    req.user = { ...user?._doc, loginHistoryId: loginHistory?._id };
+    console.log("req.user from auth:", req.user);
     next();
   } catch (error) {
     throw new ApiError(401, error?.message || "Invalid Access Token");
