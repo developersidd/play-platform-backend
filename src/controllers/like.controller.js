@@ -85,7 +85,6 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
 
 const getLikedVideos = asyncHandler(async (req, res) => {
   // TODO: get all liked videos
-  console.log("Hello");
   const videos = await Like.aggregate([
     {
       $match: {
@@ -107,8 +106,11 @@ const getLikedVideos = asyncHandler(async (req, res) => {
       },
     },
   ]);
-  console.log(videos);
-  return res.status(200).json(new ApiResponse(200, videos, "Success"));
+  const response = new ApiResponse(200, videos, "Liked videos found");
+  // cache the response
+  const { redisClient } = req.app.locals || {};
+  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  return res.status(200).json();
 });
 
 export { getLikedVideos, toggleCommentLike, toggleTweetLike, toggleVideoLike };

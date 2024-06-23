@@ -2,6 +2,7 @@
 import dotenv from "dotenv";
 import app from "./app.js";
 import connectDB from "./db/index.js";
+import swaggerDocs from "./utils/swagger.js";
 // configure environment variables
 dotenv.config({ path: "./.env" });
 
@@ -16,6 +17,8 @@ connectDB()
       console.log("Application isn't ready to run");
       throw error;
     });
+    // Swagger
+    swaggerDocs(app, PORT);
     // start server
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);

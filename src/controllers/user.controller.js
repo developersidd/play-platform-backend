@@ -546,13 +546,14 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     },
   ]);
 
-  console.log("channel:", channel);
   if (!channel?.length) {
     throw new ApiError(404, "Channel does not exist");
   }
-  return res
-    .status(200)
-    .json(new ApiResponse(200, channel[0], "Channel profile found"));
+  // cache the response
+  const { redisClient } = req.app.locals || {};
+  const response = new ApiResponse(200, channel[0], "Channel profile found");
+  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  return res.status(200).json(response);
 });
 
 // get user watch history
@@ -566,6 +567,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
         _id: userId,
       },
     },
+
     {
       $lookup: {
         from: "videos",
@@ -613,10 +615,15 @@ const getWatchHistory = asyncHandler(async (req, res) => {
       },
     },
   ]);
-  console.log("user from watch history:", user);
-  return res
-    .status(200)
-    .json(new ApiResponse(200, user[0]?.watchHistory, "Watch history found"));
+  // cache the response
+  const { redisClient } = req.app.locals || {};
+  const response = new ApiResponse(
+    200,
+    user[0]?.watchHistory,
+    "Watch history found"
+  );
+  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  return res.status(200).json(response);
 });
 
 const getAllUsers = asyncHandler(async (req, res) => {

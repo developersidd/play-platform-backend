@@ -9,14 +9,15 @@ import {
 } from "../controllers/video.controller.js";
 import verifyJWT from "../middlewares/auth.middleware.js";
 import upload from "../middlewares/multer.middleware.js";
+import checkCache from "../middlewares/redisCache.middleware.js";
 
 const router = express.Router();
-
-router.use(verifyJWT); // Apply verifyJWT middleware to all routes in this file
+// Apply verifyJWT middleware to all routes in this file
 
 router
   .route("/")
   .post(
+    verifyJWT,
     upload.fields([
       {
         name: "videoFile",
@@ -29,16 +30,15 @@ router
     ]),
     publishVideo
   )
-  .get(getAllVideos);
-
+  .get(checkCache, getAllVideos);
 // single video routes
 router
   .route("/:id")
-  .get(getVideoById)
-  .delete(deleteVideo)
-  .patch(upload.single("thumbnail"), updateVideoById);
+  .get(checkCache, getVideoById)
+  .delete(verifyJWT, deleteVideo)
+  .patch(verifyJWT, upload.single("thumbnail"), updateVideoById);
 
 // Toggle video publish status
-router.route("/toggle/publish/:id").patch(updateVideoPublishStatus);
+router.route("/toggle/publish/:id").patch(verifyJWT, updateVideoPublishStatus);
 
 export default router;

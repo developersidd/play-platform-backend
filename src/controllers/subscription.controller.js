@@ -85,22 +85,22 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     options
   );
 
-  console.log("result subscribers:", result);
-
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      {
-        subscribers: result.docs,
-        totalSubscribers: result.totalDocs,
-        totalPages: result.totalPages,
-        currentPage: result.page,
-        hasNextPage: result.hasNextPage,
-        hasPrevPage: result.hasPrevPage,
-      },
-      "Subscribers list"
-    )
+  // cache the response
+  const { redisClient } = req.app.locals || {};
+  const response = new ApiResponse(
+    200,
+    {
+      subscribers: result.docs,
+      totalSubscribers: result.totalDocs,
+      totalPages: result.totalPages,
+      currentPage: result.page,
+      hasNextPage: result.hasNextPage,
+      hasPrevPage: result.hasPrevPage,
+    },
+    "Subscribers list"
   );
+  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  return res.status(200).json(response);
 });
 
 // controller to return channel list to which user has subscribed
@@ -118,6 +118,7 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
     {
       $match: { subscriber: mongoSubscriberId },
     },
+
     {
       $lookup: {
         from: "users",
@@ -151,22 +152,22 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
     options
   );
 
-  console.log("result subscribed channels:", result);
-
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      {
-        subscribedChannels: result.docs,
-        totalSubscribedChannels: result.totalDocs,
-        totalPages: result.totalPages,
-        currentPage: result.page,
-        hasNextPage: result.hasNextPage,
-        hasPrevPage: result.hasPrevPage,
-      },
-      "Subscribed channels list"
-    )
+  // cache the response
+  const { redisClient } = req.app.locals || {};
+  const response = new ApiResponse(
+    200,
+    {
+      subscribedChannels: result.docs,
+      totalSubscribedChannels: result.totalDocs,
+      totalPages: result.totalPages,
+      currentPage: result.page,
+      hasNextPage: result.hasNextPage,
+      hasPrevPage: result.hasPrevPage,
+    },
+    "Subscribed channels list"
   );
+  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  return res.status(200).json(response);
 });
 
 export { getSubscribedChannels, getUserChannelSubscribers, toggleSubscription };

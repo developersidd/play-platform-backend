@@ -8,6 +8,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
   // TODO: get all comments for a video
   const { videoId } = req.params;
   const { page = 1, limit = 10 } = req.query;
+
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video id");
   }
@@ -28,21 +29,22 @@ const getVideoComments = asyncHandler(async (req, res) => {
   };
 
   const result = await Comment.aggregatePaginate(aggregateQuery, options);
-  console.log("result:", JSON.stringify(result, null, 2));
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      {
-        comments: result.docs,
-        totalComments: result.totalDocs,
-        totalPages: result.totalPages,
-        currentPage: result.page,
-        hasNextPage: result.hasNextPage,
-        hasPrevPage: result.hasPrevPage,
-      },
-      "Comments found"
-    )
+  const response = new ApiResponse(
+    200,
+    {
+      comments: result.docs,
+      totalComments: result.totalDocs,
+      totalPages: result.totalPages,
+      currentPage: result.page,
+      hasNextPage: result.hasNextPage,
+      hasPrevPage: result.hasPrevPage,
+    },
+    "Comments found"
   );
+  // cache the response
+  const { redisClient } = req.app.locals || {};
+  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  return res.status(200).json(response);
 });
 
 const addComment = asyncHandler(async (req, res) => {

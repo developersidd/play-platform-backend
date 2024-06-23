@@ -46,7 +46,7 @@ const createHistory = asyncHandler(async (req, res, { token, userId }) => {
       new: true,
     }
   );
-  console.log("loginHistory:", loginHistory)
+  console.log("loginHistory:", loginHistory);
   return loginHistory;
 });
 
@@ -62,9 +62,11 @@ const getLoginHistory = asyncHandler(async (req, res) => {
     }
     return history._doc;
   });
-  return res
-    .status(200)
-    .json(new ApiResponse(200, modifiedHistory, "Login history found"));
+  // cache the response
+  const { redisClient } = req.app.locals || {};
+  const response = new ApiResponse(200, modifiedHistory, "Login history found");
+  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  return res.status(200).json(response);
 });
 
 const logoutSingleDevice = asyncHandler(async (req, res) => {

@@ -20,6 +20,7 @@ import {
 } from "../controllers/user.controller.js";
 import verifyJWT from "../middlewares/auth.middleware.js";
 import upload from "../middlewares/multer.middleware.js";
+import checkCache from "../middlewares/redisCache.middleware.js";
 
 const router = Router();
 
@@ -46,9 +47,9 @@ router.route("/logout").post(verifyJWT, logoutUser);
 // refresh token route
 router.route("/refresh-token").post(refreshAccessToken);
 // get watch history
-router.route("/history").get(verifyJWT, getWatchHistory);
+router.route("/history").get(verifyJWT, checkCache, getWatchHistory);
 // get user channel profile
-router.route("/c/:username").get(verifyJWT, getUserChannelProfile);
+router.route("/c/:username").get(verifyJWT, checkCache, getUserChannelProfile);
 // change password route
 router.route("/change-password").post(verifyJWT, changeCurrentPassword);
 // get current user

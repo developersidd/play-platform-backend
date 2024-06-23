@@ -2,6 +2,7 @@
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
+import { createClient } from "redis";
 import requestIp from "request-ip";
 // import Routes
 import commentRouter from "./routes/comment.routes.js";
@@ -15,6 +16,14 @@ import videoRouter from "./routes/video.routes.js";
 // App Initialization
 const app = express();
 
+// Redis Cache
+const connectRedis = async () => {
+  const client = await createClient()
+    .on("error", (err) => console.log("Redis Client Error", err))
+    .connect();
+  app.locals.redisClient = client;
+};
+connectRedis();
 // Middlewares
 app.use(express.json({ limit: "20kb" }));
 // for parsing application/x-www-form-urlencoded data from the client side form submission (e.g., login form) and extended: true allows for nested objects in the form data
@@ -33,4 +42,5 @@ app.use("/api/v1/tweets", tweetRouter);
 app.use("/api/v1/comments", commentRouter);
 app.use("/api/v1/subscriptions", subscriptionRouter);
 app.use("/api/v1/login-history", loginHistoryRouter);
+
 export default app;

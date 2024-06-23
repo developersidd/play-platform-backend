@@ -24,9 +24,11 @@ const getUserTweets = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid User Id");
   }
   const tweets = await Tweet.find({ owner: userId });
-  return res
-    .status(200)
-    .json(new ApiResponse(200, tweets, "User tweets found"));
+  // cache the response
+  const { redisClient } = req.app.locals || {};
+  const response = new ApiResponse(200, tweets, "User tweets found");
+  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  return res.status(200).json(response);
 });
 
 const updateTweet = asyncHandler(async (req, res) => {

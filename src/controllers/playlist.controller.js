@@ -28,9 +28,11 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid User Id");
   }
   const playlist = await Playlist.find({ owner: userId });
-  return res
-    .status(200)
-    .json(new ApiResponse(200, playlist, "User playlists found"));
+  // cache the response
+  const { redisClient } = req.app.locals || {};
+  const response = new ApiResponse(200, playlist, "User playlists found");
+  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  return res.status(200).json(response);
 });
 
 // get a playlist by id
@@ -43,7 +45,11 @@ const getPlaylistById = asyncHandler(async (req, res) => {
   if (!playlist) {
     throw new ApiError(404, "Playlist not found");
   }
-  return res.status(200).json(new ApiResponse(200, playlist, "Playlist found"));
+  // cache the response
+  const { redisClient } = req.app.locals || {};
+  const response = new ApiResponse(200, playlist, "Playlist found");
+  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  return res.status(200).json(response);
 });
 
 // add a video to a playlist
@@ -58,7 +64,9 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
   }
   // Check if video already exists in the playlist
   if (await Playlist.exists({ videos: videoId })) {
-    throw new ApiError(409, "Video already exists in a playlist");
+    return res
+      .status(409)
+      .json(new ApiResponse(409, [], "Video already exists in a playlist"));
   }
   const playlist = await Playlist.findByIdAndUpdate(
     playlistId,

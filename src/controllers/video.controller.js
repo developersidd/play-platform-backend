@@ -17,6 +17,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
     sortType = "desc",
     userId,
   } = req.query || {};
+
   // search query
   const searchQuery = { isPublished: true };
   if (userId) {
@@ -60,23 +61,26 @@ const getAllVideos = asyncHandler(async (req, res) => {
     page: parseInt(page, 10),
     limit: parseInt(limit, 10),
   };
-
+  // aggregation result
   const result = await Video.aggregatePaginate(aggregateQuery, options);
-  // console.log("result:", JSON.stringify(result, null, 2));
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      {
-        videos: result.docs,
-        totalVideos: result.totalDocs,
-        totalPages: result.totalPages,
-        currentPage: result.page,
-        hasNextPage: result.hasNextPage,
-        hasPrevPage: result.hasPrevPage,
-      },
-      "Videos found"
-    )
+  // Create the response object
+  const response = new ApiResponse(
+    200,
+    {
+      videos: result.docs,
+      totalVideos: result.totalDocs,
+      totalPages: result.totalPages,
+      currentPage: result.page,
+      hasNextPage: result.hasNextPage,
+      hasPrevPage: result.hasPrevPage,
+    },
+    "Videos found"
   );
+
+  // Cache the response
+  const { redisClient } = req.app.locals || {};
+  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  return res.status(200).json(response);
 });
 
 // Get video by id
@@ -85,7 +89,11 @@ const getVideoById = asyncHandler(async (req, res) => {
   if (!video) {
     throw new ApiError(404, "Video not found");
   }
-  return res.status(200).json(new ApiResponse(200, video, "Video found"));
+  // Cache the response
+  const { redisClient } = req.app.locals || {};
+  const response = new ApiResponse(200, video, "Video found");
+  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  return res.status(200).json(response);
 });
 
 // Update video by id
