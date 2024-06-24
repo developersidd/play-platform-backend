@@ -23,7 +23,7 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
   });
   if (existingLike) {
     await Like.findByIdAndDelete(existingLike._id);
-    return res.status(200).json(new ApiResponse(200, null, "Disliked"));
+    return res.status(200).json(new ApiResponse(200, {}, "Disliked"));
   }
   const videoLike = await Like.create({
     video: videoId,
@@ -48,7 +48,7 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
   });
   if (existingLike) {
     await Like.findByIdAndDelete(existingLike._id);
-    return res.status(200).json(new ApiResponse(200, null, "Disliked"));
+    return res.status(200).json(new ApiResponse(200, {}, "Disliked"));
   }
   const commentLike = await Like.create({
     comment: commentId,
@@ -74,7 +74,7 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
   });
   if (existingLike) {
     await Like.findByIdAndDelete(existingLike._id);
-    return res.status(200).json(new ApiResponse(200, null, "Disliked"));
+    return res.status(200).json(new ApiResponse(200, {}, "Disliked"));
   }
   const tweetLike = await Like.create({
     tweet: tweetId,

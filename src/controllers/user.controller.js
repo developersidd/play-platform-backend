@@ -222,7 +222,7 @@ const sendEmailVerificationCode = asyncHandler(async (req, res) => {
   );
   return res
     .status(200)
-    .json(new ApiResponse(200, null, "Verification code sent to email"));
+    .json(new ApiResponse(200, {}, "Verification code sent to email"));
 });
 
 // verify email
@@ -247,7 +247,7 @@ const verifyEmail = asyncHandler(async (req, res) => {
   await user.save({ validateBeforeSave: false });
   return res
     .status(200)
-    .json(new ApiResponse(200, null, "Email verified successfully"));
+    .json(new ApiResponse(200, {}, "Email verified successfully"));
 });
 // refresh access token
 const refreshAccessToken = asyncHandler(async (req, res) => {
@@ -374,7 +374,7 @@ const resetPassword = asyncHandler(async (req, res) => {
   await user.save({ validateBeforeSave: false });
   return res
     .status(200)
-    .json(new ApiResponse(200, null, "Password reset successfully"));
+    .json(new ApiResponse(200, {}, "Password reset successfully"));
 });
 
 // find current user

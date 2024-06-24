@@ -1,9 +1,10 @@
+
 /**
  * @swagger
  * /videos:
  *   get:
  *     summary: Get a list of all videos
- *     tags: [Videos]
+ *     tags: [Video]
  *     security: []
  *     parameters:
  *       - in: query
@@ -30,7 +31,7 @@
  *         name: userId
  *         schema:
  *           type: string
- *         description: The ID of the user to filter videos by   
+ *         description: The ID of the user to filter videos by
  *     responses:
  *       200:
  *         description: Videos found
@@ -53,7 +54,7 @@
  * /videos:
  *   post:
  *     summary: Create a new video
- *     tags: [Videos]
+ *     tags: [Video]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -65,10 +66,10 @@
  *             properties:
  *               videoFile:
  *                 type: string
- *                 format: binary
+ *                 format: file
  *               thumbnail:
  *                 type: string
- *                 format: binary
+ *                 format: file
  *               title:
  *                 type: string
  *               description:
@@ -116,7 +117,7 @@
  * /videos/{id}:
  *   get:
  *     summary: Get video by id
- *     tags: [Videos]
+ *     tags: [Video]
  *     security: []
  *     parameters:
  *       - in: path
@@ -169,7 +170,7 @@
  *   patch:
  *     summary: Update a video by id
  *     description: The API endpoint enables users to update their video thumbnail, title or description .By accessing this endpoint and providing the necessary parameters, users can update their video
- *     tags: [Videos]
+ *     tags: [Video]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -188,7 +189,7 @@
  *             properties:
  *               thumbnail:
  *                 type: string
- *                 format: binary
+ *                 format: file
  *               title:
  *                 type: string
  *               description:
@@ -237,7 +238,7 @@
  * /videos/toggle/publish/{id}:
  *   patch:
  *     summary: Toggle video publish status
- *     tags: [Videos]
+ *     tags: [Video]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -301,7 +302,7 @@
  * /videos/{id}:
  *   delete:
  *     summary: Delete a video by id
- *     tags: [Videos]
+ *     tags: [Video]
  *     security:
  *       - bearerAuth: []
  *     parameters:

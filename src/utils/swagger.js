@@ -28,6 +28,20 @@ const options = {
         bearerAuth: [],
       },
     ],
+    tags: [
+      {
+        name: "Auth",
+        description: "Authentication related endpoints",
+      },
+      {
+        name: "User",
+        description: "User related endpoints",
+      },
+      {
+        name: "Video",
+        description: "Video related endpoints",
+      },
+    ],
   },
   apis: ["./src/swagger-ui/*.js", "./src/models/*.ts"],
 };

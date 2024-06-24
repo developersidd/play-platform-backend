@@ -73,7 +73,7 @@ const logoutSingleDevice = asyncHandler(async (req, res) => {
   const { id: loginHistoryId } = req.params;
 
   await LoginHistory.findByIdAndDelete(loginHistoryId);
-  return res.status(200).json(new ApiResponse(200, null, "Logout successful"));
+  return res.status(200).json(new ApiResponse(200, {}, "Logout successful"));
 });
 
 const logoutAllDevices = asyncHandler(async (req, res) => {
@@ -82,7 +82,7 @@ const logoutAllDevices = asyncHandler(async (req, res) => {
   });
   return res
     .status(200)
-    .json(new ApiResponse(200, null, "Logout from all devices successful"));
+    .json(new ApiResponse(200, {}, "Logout from all devices successful"));
 });
 
 export { createHistory, getLoginHistory, logoutAllDevices, logoutSingleDevice };
