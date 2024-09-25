@@ -170,4 +170,24 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
   return res.status(200).json(response);
 });
 
-export { getSubscribedChannels, getUserChannelSubscribers, toggleSubscription };
+// check subscription status
+const checkSubscriptionStatus = asyncHandler(async (req, res) => {
+  const { channelId } = req.params;
+  if (!isValidObjectId()) {
+    throw new ApiError(400, "Invalid subscriber or channel id");
+  }
+  const data = await Subscription.exists({
+    subscriber: req.user._id,
+    channel: channelId,
+  });
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { isSubscribed: !!data?._id }));
+});
+
+export {
+  checkSubscriptionStatus,
+  getSubscribedChannels,
+  getUserChannelSubscribers,
+  toggleSubscription,
+};

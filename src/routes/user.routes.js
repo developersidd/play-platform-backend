@@ -24,6 +24,13 @@ import checkCache from "../middlewares/redisCache.middleware.js";
 
 const router = Router();
 
+const appLimiter = rateLimit({
+  windowMs: 30 * 60 * 1000,
+  max: 30,
+  message: "Too many requests from this IP, please try again after an hour",
+});
+
+// Register route
 router.post(
   "/register",
   upload.fields([
@@ -33,11 +40,6 @@ router.post(
   registerUser
 );
 
-const appLimiter = rateLimit({
-  windowMs: 30 * 60 * 1000,
-  max: 3,
-  message: "Too many requests from this IP, please try again after an hour",
-});
 // login route
 router.post("/login", appLimiter, loginUser);
 // get all users

@@ -1,40 +1,44 @@
 import { isValidObjectId } from "mongoose";
 import Comment from "../models/comment.model.js";
-import Like from "../models/like.model.js";
+import DisLike from "../models/dislike.model.js";
 import Tweet from "../models/tweet.model.js";
 import Video from "../models/video.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 
-const toggleVideoLike = asyncHandler(async (req, res) => {
+const toggleVideoDisLike = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
+  console.log("videoId:", videoId);
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video id");
   }
-
   // check if video exists
   if (!(await Video.exists({ _id: videoId }))) {
     throw new ApiError(404, "Video not found");
   }
 
-  const existingLike = await Like.findOne({
+  const existingDisLike = await DisLike.findOne({
     video: videoId,
-    likedBy: req.user._id,
+    dislikedBy: req.user._id,
   });
-  if (existingLike) {
-    await Like.findByIdAndDelete(existingLike._id);
-    return res.status(200).json(new ApiResponse(200, {}, "Disliked"));
+  if (existingDisLike) {
+    await DisLike.findByIdAndDelete(existingDisLike._id);
+    return res
+      .status(200)
+      .json(new ApiResponse(200, {}, "Disdisliked removed"));
   }
-  const videoLike = await Like.create({
+  const videodisLike = await DisLike.create({
     video: videoId,
-    likedBy: req.user._id,
+    dislikedBy: req.user._id,
   });
 
-  return res.status(200).json(new ApiResponse(200, videoLike, "Liked"));
+  return res
+    .status(200)
+    .json(new ApiResponse(200, videodisLike, "DisLiked video "));
 });
 
-const toggleCommentLike = asyncHandler(async (req, res) => {
+const toggleCommentDisLike = asyncHandler(async (req, res) => {
   const { commentId } = req.params;
   if (!isValidObjectId(commentId)) {
     throw new ApiError(400, "Invalid comment id");
@@ -43,23 +47,23 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
   if (!(await Comment.exists({ _id: commentId }))) {
     throw new ApiError(404, "Comment not found");
   }
-  const existingLike = await Like.findOne({
+  const existingDisLike = await DisLike.findOne({
     comment: commentId,
-    likedBy: req.user._id,
+    dislikedBy: req.user._id,
   });
-  if (existingLike) {
-    await Like.findByIdAndDelete(existingLike._id);
-    return res.status(200).json(new ApiResponse(200, {}, "Disliked"));
+  if (existingDisLike) {
+    await DisLike.findByIdAndDelete(existingDisLike._id);
+    return res.status(200).json(new ApiResponse(200, {}, "Disdisliked"));
   }
-  const commentLike = await Like.create({
+  const commentDisLike = await DisLike.create({
     comment: commentId,
-    likedBy: req.user._id,
+    dislikedBy: req.user._id,
   });
 
-  return res.status(200).json(new ApiResponse(200, commentLike, "Liked"));
+  return res.status(200).json(new ApiResponse(200, commentDisLike, "disLiked"));
 });
 
-const toggleTweetLike = asyncHandler(async (req, res) => {
+const toggleTweetDisLike = asyncHandler(async (req, res) => {
   const { tweetId } = req.params;
   if (!isValidObjectId(tweetId)) {
     throw new ApiError(400, "Invalid tweet id");
@@ -69,27 +73,27 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Tweet not found");
   }
 
-  const existingLike = await Like.findOne({
+  const existingDisLike = await DisLike.findOne({
     tweet: tweetId,
-    likedBy: req.user._id,
+    dislikedBy: req.user._id,
   });
-  if (existingLike) {
-    await Like.findByIdAndDelete(existingLike._id);
-    return res.status(200).json(new ApiResponse(200, {}, "Disliked"));
+  if (existingDisLike) {
+    await DisLike.findByIdAndDelete(existingDisLike._id);
+    return res.status(200).json(new ApiResponse(200, {}, "Disdisliked"));
   }
-  const tweetLike = await Like.create({
+  const tweetDisLike = await disLike.create({
     tweet: tweetId,
-    likedBy: req.user._id,
+    dislikedBy: req.user._id,
   });
-  return res.status(200).json(new ApiResponse(200, tweetLike, "Liked"));
+  return res.status(200).json(new ApiResponse(200, tweetDisLike, "disLiked"));
 });
 
-const getLikedVideos = asyncHandler(async (req, res) => {
-  // TODO: get all liked videos
-  const videos = await Like.aggregate([
+const getDisLikedVideos = asyncHandler(async (req, res) => {
+  // TODO: get all disliked videos
+  const videos = await DisLike.aggregate([
     {
       $match: {
-        likedBy: req.user._id,
+        dislikedBy: req.user._id,
         video: { $exists: true },
       },
     },
@@ -107,16 +111,15 @@ const getLikedVideos = asyncHandler(async (req, res) => {
       },
     },
   ]);
-  const response = new ApiResponse(200, videos, "Liked videos found");
+  const response = new ApiResponse(200, videos, "disLiked videos found");
   // cache the response
   const { redisClient } = req.app.locals || {};
   redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
   return res.status(200).json();
 });
 
-const getVideoLikes = asyncHandler(async (req, res) => {
+const getVideoDisLikes = asyncHandler(async (req, res) => {
   const { videoId, userId } = req.params || {};
-  console.log("videoId, userId:", videoId, userId);
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video id");
   }
@@ -125,31 +128,33 @@ const getVideoLikes = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Video not found");
   }
 
-  const likes = await Like.countDocuments({ video: videoId });
+  const dislikes = await DisLike.countDocuments({
+    video: videoId,
+  });
 
-  const isLiked =
+  const isDisliked =
     userId &&
-    (await Like.exists({
+    (await DisLike.exists({
       video: videoId,
-      likedBy: userId,
+      dislikedBy: userId,
     }));
 
   return res.status(200).json(
     new ApiResponse(
       200,
       {
-        likes,
-        isLiked: !!isLiked?._id,
+        dislikes,
+        isDisliked: !!isDisliked?._id,
       },
-      "video likes count"
+      "video dislikes count"
     )
   );
 });
 
 export {
-  getLikedVideos,
-  getVideoLikes,
-  toggleCommentLike,
-  toggleTweetLike,
-  toggleVideoLike,
+  getDisLikedVideos,
+  getVideoDisLikes,
+  toggleCommentDisLike,
+  toggleTweetDisLike,
+  toggleVideoDisLike,
 };

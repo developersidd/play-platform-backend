@@ -34,7 +34,7 @@ router
 // single video routes
 router
   .route("/:id")
-  .get(checkCache, getVideoById)
+  .get(getVideoById)
   .delete(verifyJWT, deleteVideo)
   .patch(verifyJWT, upload.single("thumbnail"), updateVideoById);
 

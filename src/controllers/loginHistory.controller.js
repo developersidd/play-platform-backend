@@ -31,7 +31,7 @@ const createHistory = asyncHandler(async (req, res, { token, userId }) => {
 
   const loginHistory = await LoginHistory.findOneAndUpdate(
     {
-      $and: [{ user: userId }, { token }, { userAgent }],
+      $and: [{ user: userId }, { userAgent }],
     },
     {
       user: userId,

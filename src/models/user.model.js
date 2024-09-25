@@ -52,14 +52,14 @@ const userSchema = new mongoose.Schema(
         _id: false,
         url: {
           type: String,
-          required: [true, "Cover Image URL is required"],
+          // required: [true, "Cover Image URL is required"],
         },
         public_id: {
           type: String,
-          required: [true, "Cover Image public ID is required"],
+          // required: [true, "Cover Image public ID is required"],
         },
       },
-      required: [true, "Cover Image is required"],
+      // required: [true, "Cover Image is required"],
     },
     watchHistory: [
       {

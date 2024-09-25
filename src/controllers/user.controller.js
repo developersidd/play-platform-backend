@@ -49,22 +49,22 @@ const registerUser = asyncHandler(async (req, res) => {
   }
   // check Images
   /*
-  * output of req.files 
-  {
-    avatar: [
+    * output of req.files 
     {
-      fieldname: 'avatar',
-      originalname: 'ab-siddi
-      encoding: '7bit',
-      mimetype: 'image/jpeg',
-      destination: './public/
-      filename: 'ab-siddik.jp
-      path: 'public\\temp\\ab
-      size: 120789
-    }
-  ]
-}
-  */
+      avatar: [
+      {
+        fieldname: 'avatar',
+        originalname: 'ab-siddi
+        encoding: '7bit',
+        mimetype: 'image/jpeg',
+        destination: './public/
+        filename: 'ab-siddik.jp
+        path: 'public\\temp\\ab
+        size: 120789
+      }
+    ]
+  }
+    */
   const avatarLocalPath = (req?.files?.avatar ?? [])[0]?.path;
   const coverImageLocalPath = (req?.files?.coverImage ?? [])[0]?.path;
   if (!avatarLocalPath) {
@@ -74,7 +74,8 @@ const registerUser = asyncHandler(async (req, res) => {
 
   // upload images on cloudinary
   const avatar = await uploadOnCloudinary(avatarLocalPath);
-  const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+  const coverImage =
+    coverImageLocalPath && (await uploadOnCloudinary(coverImageLocalPath));
   if (!avatar?.url) {
     throw new ApiError(
       500,
@@ -82,7 +83,7 @@ const registerUser = asyncHandler(async (req, res) => {
     );
   }
 
-  if (!coverImage?.url) {
+  if (coverImageLocalPath && !coverImage?.url) {
     throw new ApiError(500, "Something went wrong while uploading Cover Image");
   }
 
@@ -112,8 +113,6 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Something went wrong while registering user");
   }
 
-  console.log("files", req.files);
-
   // send response to client
 
   return res
@@ -121,7 +120,7 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, createdUser, "User registered successfully"));
 });
 const loginUser = asyncHandler(async (req, res) => {
-  /* Steps to register user */
+  /* Steps to login user */
   // 1. get user details from request body
   // 2. validate user details
   // 3. check if user exists: username, email
@@ -159,6 +158,10 @@ const loginUser = asyncHandler(async (req, res) => {
   await user.save({
     validateBeforeSave: false,
   });
+
+  // delete password from response
+  user.password = undefined;
+
   // create login history
   createHistory(req, res, {
     token: accessToken,
@@ -253,6 +256,7 @@ const verifyEmail = asyncHandler(async (req, res) => {
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
     req.cookies?.refreshToken || req.body?.refreshToken;
+  console.log("incomingRefreshToken:", incomingRefreshToken);
   if (!incomingRefreshToken) {
     throw new ApiError(401, "Unauthorized request");
   }
@@ -262,6 +266,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       process.env.REFRESH_TOKEN_SECRET
     );
     const user = await User.findById(decodedToken?._id);
+    console.log("user from rat:", user);
     if (!user) {
       throw new ApiError(401, "Invalid refresh token");
     }
@@ -271,6 +276,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
     const { accessToken, refreshToken } =
       (await generateAndSaveAccessAndRefreshToken(user?._id)) || {};
+    console.log("new accessToken:", accessToken);
     return res
       .status(200)
       .cookie("accessToken", accessToken, cookieOptions)
@@ -283,6 +289,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
         )
       );
   } catch (error) {
+    console.log("error generating :", error);
     throw new ApiError(401, error.message || "Invalid refresh token");
   }
 });
@@ -378,9 +385,10 @@ const resetPassword = asyncHandler(async (req, res) => {
 });
 
 // find current user
-const getCurrentUser = asyncHandler((req, res) =>
-  res.status(200).json(new ApiResponse(200, req?.user, "User found"))
-);
+const getCurrentUser = asyncHandler((req, res) => {
+  console.log("coming");
+  return res.status(200).json(new ApiResponse(200, req?.user, "User found"));
+});
 
 // update account  details
 const updateAccountDetails = asyncHandler(async (req, res) => {

@@ -5,7 +5,6 @@ import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import formatDuration from "../utils/formatDuration.js";
-
 // Get all videos
 
 const getAllVideos = asyncHandler(async (req, res) => {
@@ -36,24 +35,40 @@ const getAllVideos = asyncHandler(async (req, res) => {
   }
 
   // Create the aggregation pipeline
-  const aggregateQuery = await Video.aggregate([
+  const aggregateQuery = Video.aggregate([
     {
       $match: searchQuery,
     },
     {
       $sort: sortQuery,
     },
-    /* {
-      $project: {
-        // Project only necessary fields
-        title: 1,
-        description: 1,
-        thumbnail: 1,
-        views: 1,
-        duration: 1,
-        createdAt: 1,
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+        pipeline: [
+          {
+            $project: {
+              _id: 1,
+              username: 1,
+              fullName: 1,
+              email: 1,
+              avatar: 1,
+              coverImage: 1,
+            },
+          },
+        ],
       },
-    }, */
+    },
+    {
+      $set: {
+        owner: {
+          $first: "$owner",
+        },
+      },
+    },
   ]);
 
   // Use aggregatePaginate for pagination
@@ -61,8 +76,9 @@ const getAllVideos = asyncHandler(async (req, res) => {
     page: parseInt(page, 10),
     limit: parseInt(limit, 10),
   };
-  // aggregation result
+  // Use aggregatePaginate with the aggregation object (not array of stages)
   const result = await Video.aggregatePaginate(aggregateQuery, options);
+  console.log("result:", result);
   // Create the response object
   const response = new ApiResponse(
     200,
@@ -85,7 +101,11 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
 // Get video by id
 const getVideoById = asyncHandler(async (req, res) => {
-  const video = await Video.findById(req.params.id);
+  const video = await Video.findById(req.params.id).populate({
+    path: "owner",
+    model: "User",
+  });
+
   if (!video) {
     throw new ApiError(404, "Video not found");
   }
