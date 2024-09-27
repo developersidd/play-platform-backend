@@ -101,18 +101,24 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
 // Get video by id
 const getVideoById = asyncHandler(async (req, res) => {
+  const { redisClient } = req.app.locals || {};
+  const cachedData = await redisClient.get("single-video");
+  if (cachedData) {
+    console.log("from cache");
+    return res.status(200).json(JSON.parse(cachedData));
+  }
   const video = await Video.findById(req.params.id).populate({
     path: "owner",
     model: "User",
+    select: "_id username fullName email avatar",
   });
 
   if (!video) {
     throw new ApiError(404, "Video not found");
   }
   // Cache the response
-  const { redisClient } = req.app.locals || {};
   const response = new ApiResponse(200, video, "Video found");
-  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  redisClient.setEx("single-video", 3600, JSON.stringify(response));
   return res.status(200).json(response);
 });
 

@@ -7,14 +7,27 @@ import { createMongoId } from "../utils/mongodb.util.js";
 
 const toggleSubscription = asyncHandler(async (req, res) => {
   const { channelId } = req.params;
+  const { redisClient } = req.app.locals || {};
   if (!isValidObjectId(channelId)) {
     throw new ApiError(400, "Invalid channel id");
   }
+  redisClient.del(
+    [
+      "subscribers-list",
+      "subscribers-list?expand=true",
+      "check-subscription-status",
+    ],
+    (err, reply) => {
+      if (err) {
+        console.log("err:", err);
+      }
+      console.log("deleted keys:", reply);
+    }
+  );
   const isSubscribed = await Subscription.exists({
     subscriber: req.user._id,
     channel: channelId,
   });
-
   // if user is already subscribed, then unsubscribe
   if (isSubscribed) {
     await Subscription.deleteOne({
@@ -40,12 +53,34 @@ const toggleSubscription = asyncHandler(async (req, res) => {
 // controller to return subscriber list of a channel
 const getUserChannelSubscribers = asyncHandler(async (req, res) => {
   const { channelId } = req.params;
-  const { page, limit } = req.query || {};
+  const { redisClient } = req.app.locals || {};
+  const { page, limit, expand = false } = req.query || {};
+  // delete the cache if expand is true
 
   if (!isValidObjectId(channelId)) {
     throw new ApiError(400, "Invalid channel id");
   }
 
+  if (!expand) {
+    // check if the response is cached
+    const cachedResponse = await redisClient.get("subscribers-list");
+    if (cachedResponse) {
+      console.log("cachedResponse not expand");
+      return res.status(200).json(JSON.parse(cachedResponse));
+    }
+    const subscribers = await Subscription.countDocuments({
+      channel: channelId,
+    });
+
+    const response = new ApiResponse(200, { subscribers }, "Subscribers count");
+    redisClient.setEx("subscribers-list", 3600, JSON.stringify(response));
+    return res.status(200).json(response);
+  }
+  const cachedResponse = await redisClient.get("subscribers-list?expand=true");
+  if (cachedResponse) {
+    console.log("cachedResponse expand");
+    return res.status(200).json(JSON.parse(cachedResponse));
+  }
   // paginate subscribers list query
   const mongoChannelId = createMongoId(channelId);
   const channelSubscribersQuery = Subscription.aggregate([
@@ -86,7 +121,6 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
   );
 
   // cache the response
-  const { redisClient } = req.app.locals || {};
   const response = new ApiResponse(
     200,
     {
@@ -99,7 +133,13 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     },
     "Subscribers list"
   );
-  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  req.app.locals.redisKey = "subscribers-list?expand=true";
+
+  redisClient.setEx(
+    "subscribers-list?expand=true",
+    3600,
+    JSON.stringify(response)
+  );
   return res.status(200).json(response);
 });
 
@@ -173,16 +213,34 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
 // check subscription status
 const checkSubscriptionStatus = asyncHandler(async (req, res) => {
   const { channelId } = req.params;
-  if (!isValidObjectId()) {
-    throw new ApiError(400, "Invalid subscriber or channel id");
+
+  const { redisClient } = req.app.locals || {};
+  const cachedData = await redisClient.get("check-subscription-status");
+
+  if (cachedData) {
+    console.log("from cache");
+    return res.status(200).json(JSON.parse(cachedData));
   }
+  if (!isValidObjectId(channelId)) {
+    throw new ApiError(400, "Invalid channel id");
+  }
+  console.log("req.user?._id:", req.user?._id);
   const data = await Subscription.exists({
-    subscriber: req.user._id,
+    subscriber: req.user?._id,
     channel: channelId,
   });
-  return res
-    .status(200)
-    .json(new ApiResponse(200, { isSubscribed: !!data?._id }));
+  const response = new ApiResponse(
+    200,
+    { isSubscribed: !!data?._id },
+    "Subscription status"
+  );
+  await redisClient.setEx(
+    "check-subscription-status",
+    3600,
+    JSON.stringify(response)
+  );
+
+  return res.status(200).json(response);
 });
 
 export {

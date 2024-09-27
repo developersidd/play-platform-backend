@@ -6,7 +6,6 @@ import asyncHandler from "../utils/asyncHandler.js";
 
 const verifyJWT = asyncHandler(async (req, _, next) => {
   try {
-    console.count("verifyJWT");
     const accessToken =
       req?.cookies?.accessToken ||
       req.header("Authorization")?.replace("Bearer ", "");
@@ -29,7 +28,6 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
     // console.log("loginHistory:", loginHistory);
     // console.log("loginHistory:", loginHistory);
     // console.log("loginHistory from auth:", loginHistory);
-    console.count("user");
     if (!user) {
       throw new ApiError(401, "Invalid Access Token");
     }

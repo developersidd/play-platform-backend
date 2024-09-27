@@ -10,7 +10,7 @@ import verifyJWT from "../middlewares/auth.middleware.js";
 import checkCache from "../middlewares/redisCache.middleware.js";
 
 const router = express.Router();
-router.get("/video/:videoId/:userId", checkCache, getVideoLikes);
+router.get("/video/:videoId", checkCache, getVideoLikes);
 router.use(verifyJWT);
 router.get("/videos", checkCache, getLikedVideos);
 router.post("/toggle/v/:videoId", toggleVideoLike);

@@ -115,8 +115,16 @@ const getLikedVideos = asyncHandler(async (req, res) => {
 });
 
 const getVideoLikes = asyncHandler(async (req, res) => {
-  const { videoId, userId } = req.params || {};
-  console.log("videoId, userId:", videoId, userId);
+  const { videoId } = req.params || {};
+  const { userId } = req.query || {};
+
+  const { redisClient } = req.app.locals || {};
+  const cachedData = await redisClient.get("video-likes");
+
+  if (cachedData) {
+    console.log("from cache");
+    return res.status(200).json(JSON.parse(cachedData));
+  }
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video id");
   }
@@ -133,17 +141,17 @@ const getVideoLikes = asyncHandler(async (req, res) => {
       video: videoId,
       likedBy: userId,
     }));
-
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      {
-        likes,
-        isLiked: !!isLiked?._id,
-      },
-      "video likes count"
-    )
+  const response = new ApiResponse(
+    200,
+    {
+      likes,
+      isLiked: !!isLiked?._id,
+    },
+    "video likes count"
   );
+
+  await redisClient.setEx("video-likes", 3600, JSON.stringify(response));
+  return res.status(200).json(response);
 });
 
 export {

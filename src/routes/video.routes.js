@@ -9,7 +9,6 @@ import {
 } from "../controllers/video.controller.js";
 import verifyJWT from "../middlewares/auth.middleware.js";
 import upload from "../middlewares/multer.middleware.js";
-import checkCache from "../middlewares/redisCache.middleware.js";
 
 const router = express.Router();
 // Apply verifyJWT middleware to all routes in this file
@@ -30,7 +29,7 @@ router
     ]),
     publishVideo
   )
-  .get(checkCache, getAllVideos);
+  .get(getAllVideos);
 // single video routes
 router
   .route("/:id")

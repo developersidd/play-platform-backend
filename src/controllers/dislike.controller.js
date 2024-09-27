@@ -119,7 +119,16 @@ const getDisLikedVideos = asyncHandler(async (req, res) => {
 });
 
 const getVideoDisLikes = asyncHandler(async (req, res) => {
-  const { videoId, userId } = req.params || {};
+  const { videoId } = req.params || {};
+  const { userId } = req.query || {};
+  const { redisClient } = req.app.locals || {};
+  const cachedData = await redisClient.get("video-dislikes");
+
+  if (cachedData) {
+    console.log("from cache");
+    return res.status(200).json(JSON.parse(cachedData));
+  }
+
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video id");
   }
@@ -138,17 +147,18 @@ const getVideoDisLikes = asyncHandler(async (req, res) => {
       video: videoId,
       dislikedBy: userId,
     }));
-
-  return res.status(200).json(
-    new ApiResponse(
-      200,
-      {
-        dislikes,
-        isDisliked: !!isDisliked?._id,
-      },
-      "video dislikes count"
-    )
+  const response = new ApiResponse(
+    200,
+    {
+      dislikes,
+      isDisliked: !!isDisliked?._id,
+    },
+    "video dislikes count"
   );
+
+  await redisClient.setEx("video-dislikes", 3600, JSON.stringify(response));
+
+  return res.status(200).json(response);
 });
 
 export {
