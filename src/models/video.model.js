@@ -32,16 +32,16 @@ const videoSchema = new Schema(
 
     title: {
       type: String,
-      required: true,
+      required: [true, "Title is required"],
     },
 
     description: {
       type: String,
-      required: true,
+      required: [true, "Description is required"],
     },
     duration: {
       type: String,
-      required: true,
+      required: [true, "Duration is required"],
     },
     views: {
       type: Number,
@@ -54,7 +54,11 @@ const videoSchema = new Schema(
     owner: {
       type: Schema.Types.ObjectId,
       ref: "User",
-      // required: true,
+      required: true,
+    },
+    tags: {
+      type: [String],
+      required: [true, "Tags are required"],
     },
   },
   { timestamps: true }

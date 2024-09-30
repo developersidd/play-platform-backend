@@ -2,8 +2,10 @@ import express from "express";
 import {
   deleteVideo,
   getAllVideos,
+  getRelatedVideos,
   getVideoById,
   publishVideo,
+  updateAllVideo,
   updateVideoById,
   updateVideoPublishStatus,
 } from "../controllers/video.controller.js";
@@ -29,7 +31,11 @@ router
     ]),
     publishVideo
   )
+  .patch(verifyJWT, updateAllVideo)
   .get(getAllVideos);
+// related video routes
+
+router.get("/related/:id", getRelatedVideos);
 // single video routes
 router
   .route("/:id")

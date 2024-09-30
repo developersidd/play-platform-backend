@@ -15,8 +15,18 @@ const getVideoComments = asyncHandler(async (req, res) => {
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video id");
   }
+
+  const { redisClient } = req.app.locals || {};
+  const cachedData = await redisClient.get("video-comments");
+
+  if (cachedData) {
+    console.log("from cache");
+    return res.status(200).json(JSON.parse(cachedData));
+  }
   const searchQuery = { video: createMongoId(videoId) };
-  const sortQuery = { createdAt: sortBy === "oldest" ? 1 : -1 };
+  const sortQuery = {
+    createdAt: -1,
+  };
   const aggregateQuery = Comment.aggregate([
     {
       $match: searchQuery,
@@ -69,15 +79,16 @@ const getVideoComments = asyncHandler(async (req, res) => {
     "Comments found"
   );
   // cache the response
-  const { redisClient } = req.app.locals || {};
-  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  redisClient.setEx("video-comments", 3600, JSON.stringify(response));
   return res.status(200).json(response);
 });
 
 const addComment = asyncHandler(async (req, res) => {
   // TODO: add a comment to a video
-  const { videoId, u } = req.params;
+  const { videoId } = req.params;
   const { content } = req.body;
+  const { redisClient } = req.app.locals || {};
+  // throw new ApiError(501, "Not implemented");
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video id");
   }
@@ -87,15 +98,18 @@ const addComment = asyncHandler(async (req, res) => {
 
   const comment = await Comment.create({
     content,
-    owner: u,
+    owner: req.user._id,
     video: videoId,
   });
+  await redisClient.del("video-comments");
   return res.status(201).json(new ApiResponse(201, comment, "Comment added"));
 });
 
 const updateComment = asyncHandler(async (req, res) => {
   // TODO: update a comment
   const { commentId } = req.params;
+  // throw new ApiError(501, "Not implemented");
+  const { redisClient } = req.app.locals || {};
   const { content } = req.body;
   if (!isValidObjectId(commentId)) {
     throw new ApiError(400, "Invalid comment id");
@@ -112,12 +126,15 @@ const updateComment = asyncHandler(async (req, res) => {
   if (!comment) {
     throw new ApiError(404, "Comment not found");
   }
+  await redisClient.del("video-comments");
   return res.status(200).json(new ApiResponse(200, comment, "Comment updated"));
 });
 
 const deleteComment = asyncHandler(async (req, res) => {
   // TODO: delete a comment
+  // throw new ApiError(501, "Not implemented");
   const { commentId } = req.params;
+  const { redisClient } = req.app.locals || {};
   if (!isValidObjectId(commentId)) {
     throw new ApiError(400, "Invalid comment id");
   }
@@ -125,6 +142,7 @@ const deleteComment = asyncHandler(async (req, res) => {
   if (!comment) {
     throw new ApiError(404, "Comment not found");
   }
+  await redisClient.del("video-comments");
   return res.status(200).json(new ApiResponse(200, {}, "Comment deleted"));
 });
 
