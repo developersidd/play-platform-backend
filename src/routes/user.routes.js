@@ -50,7 +50,7 @@ router.route("/refresh-token").post(refreshAccessToken);
 // get watch history
 router.route("/history").get(verifyJWT, getWatchHistory);
 // get user channel profile
-router.route("/c/:username").get(verifyJWT, getUserChannelProfile);
+router.route("/c/:username").get(getUserChannelProfile);
 // change password route
 router.route("/change-password").post(verifyJWT, changeCurrentPassword);
 // get current user

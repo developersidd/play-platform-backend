@@ -22,11 +22,21 @@ const getAllVideos = asyncHandler(async (req, res) => {
     sortBy = "createdAt",
     sortType = "desc",
     userId,
+    q,
   } = req.query || {};
+  console.log("q:", q);
   // Generate cache key
 
   // search query
   const searchQuery = { isPublished: true };
+  if (q) {
+    searchQuery.$or = [
+      { title: { $regex: q, $options: "i" } },
+      { description: { $regex: q, $options: "i" } },
+      { tags: { $in: q.split(" ").map((val) => val.toLowerCase()) } },
+    ];
+  }
+  // console.log("searchQuery:", JSON.stringify(searchQuery, null, 2));
   if (userId) {
     if (!isValidObjectId(userId)) {
       throw new ApiError(400, "Invalid User Id");
@@ -42,9 +52,15 @@ const getAllVideos = asyncHandler(async (req, res) => {
     sortQuery.createdAt = -1;
   }
   const cacheKey = generateCacheKey("all-videos", req.query);
+  // await revalidateRelatedCaches(req, "all-videos");
   // Check cache
   const cachedRes = await checkCache(req, cacheKey);
   if (cachedRes) {
+    /* console.log(
+        "cacheRes",
+        util.inspect(cachedRes, { showHidden: false, depth: null, colors: true })
+      ); */
+
     return res.status(200).json(cachedRes);
   }
 

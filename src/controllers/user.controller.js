@@ -385,10 +385,9 @@ const resetPassword = asyncHandler(async (req, res) => {
 });
 
 // find current user
-const getCurrentUser = asyncHandler((req, res) => {
-  console.log("coming");
-  return res.status(200).json(new ApiResponse(200, req?.user, "User found"));
-});
+const getCurrentUser = asyncHandler((req, res) =>
+  res.status(200).json(new ApiResponse(200, req?.user, "User found"))
+);
 
 // update account  details
 const updateAccountDetails = asyncHandler(async (req, res) => {
@@ -495,6 +494,9 @@ const updateCoverImage = asyncHandler(async (req, res) => {
 
 const getUserChannelProfile = asyncHandler(async (req, res) => {
   const { username } = req.params || {};
+  const loggedInUserId = createMongoId(req?.query?.loggedInUserId);
+  console.log("loggedInUserId:", loggedInUserId);
+  console.log("username:", username);
   if (!username?.trim()) {
     throw new ApiError(400, "Please provide username");
   }
@@ -531,7 +533,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
           // $in: [req?.user?._id, "$subscribers.subscriber"],
           $cond: {
             if: {
-              $in: [req.user?._id, "$subscribers.subscriber"],
+              $in: [loggedInUserId, "$subscribers.subscriber"],
             },
             then: true,
             else: false,
@@ -560,7 +562,8 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
   // cache the response
   const { redisClient } = req.app.locals || {};
   const response = new ApiResponse(200, channel[0], "Channel profile found");
-  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  // console.log("channel[0]:", channel[0])
+  // redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
   return res.status(200).json(response);
 });
 
