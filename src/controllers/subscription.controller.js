@@ -1,37 +1,27 @@
 import { isValidObjectId } from "mongoose";
 import Subscription from "../models/subscription.model.js";
+import User from "../models/user.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { createMongoId } from "../utils/mongodb.util.js";
+import { checkCache, generateCacheKey, setCache } from "../utils/redis.util.js";
 
 const toggleSubscription = asyncHandler(async (req, res) => {
-  const { channelId } = req.params;
+  const { channelId, su } = req.params;
   const { redisClient } = req.app.locals || {};
   if (!isValidObjectId(channelId)) {
     throw new ApiError(400, "Invalid channel id");
   }
-  redisClient.del(
-    [
-      "subscribers-list",
-      "subscribers-list?expand=true",
-      "check-subscription-status",
-    ],
-    (err, reply) => {
-      if (err) {
-        console.log("err:", err);
-      }
-      console.log("deleted keys:", reply);
-    }
-  );
+
   const isSubscribed = await Subscription.exists({
-    subscriber: req.user._id,
+    subscriber: su,
     channel: channelId,
   });
   // if user is already subscribed, then unsubscribe
   if (isSubscribed) {
     await Subscription.deleteOne({
-      subscriber: req.user._id,
+      subscriber: su,
       channel: channelId,
     });
     return res
@@ -41,7 +31,7 @@ const toggleSubscription = asyncHandler(async (req, res) => {
 
   //  if user is not subscribed, then subscribe
   const subscription = await Subscription.create({
-    subscriber: req.user._id,
+    subscriber: su,
     channel: channelId,
   });
 
@@ -76,11 +66,12 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     redisClient.setEx("subscribers-list", 3600, JSON.stringify(response));
     return res.status(200).json(response);
   }
-  const cachedResponse = await redisClient.get("subscribers-list?expand=true");
+  /* const cachedResponse = await redisClient.get("subscribers-list?expand=true");
   if (cachedResponse) {
     console.log("cachedResponse expand");
     return res.status(200).json(JSON.parse(cachedResponse));
   }
+  */
   // paginate subscribers list query
   const mongoChannelId = createMongoId(channelId);
   const channelSubscribersQuery = Subscription.aggregate([
@@ -145,18 +136,33 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
 
 // controller to return channel list to which user has subscribed
 const getSubscribedChannels = asyncHandler(async (req, res) => {
-  const { subscriberId } = req.params;
+  const { username } = req.params;
+  const { search } = req.query || {};
   const { page, limit } = req.query || {};
+  if (!username) {
+    throw new ApiError(400, "Invalid subscriber Name");
+  }
+  const user = await User.findOne({ username }).select("_id");
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+  const cacheKey = generateCacheKey("subscribed-channels", {
+    username,
+    search,
+    page,
+    limit,
+  })
 
-  if (!isValidObjectId(subscriberId)) {
-    throw new ApiError(400, "Invalid subscriber id");
+  // check cache
+  const cachedData = await checkCache(req, cacheKey);
+  if (cachedData) {
+    return res.status(200).json(cachedData);
   }
 
   // paginate subscribed channels list query
-  const mongoSubscriberId = createMongoId(subscriberId);
   const subscribedChannelsQuery = Subscription.aggregate([
     {
-      $match: { subscriber: mongoSubscriberId },
+      $match: { subscriber: user?._id },
     },
 
     {
@@ -165,6 +171,33 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
         localField: "channel",
         foreignField: "_id",
         as: "channel",
+        pipeline: [
+          // Add the search filter here
+          // search && {...searchQuery},
+          {
+            $lookup: {
+              from: "subscriptions",
+              localField: "_id",
+              foreignField: "channel",
+              as: "channelSubscriber",
+            },
+          },
+
+          {
+            $addFields: {
+              isSubscribed: {
+                $cond: {
+                  if: {
+                    $in: [user?._id, "$channelSubscriber.subscriber"],
+                  },
+                  then: true,
+                  else: false,
+                },
+              },
+              channelSubscribers: { $size: "$channelSubscriber" },
+            },
+          },
+        ],
       },
     },
     {
@@ -172,11 +205,16 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
         channel: { $first: "$channel" },
       },
     },
+
     {
       $project: {
         "channel.username": 1,
+        "channel._id": 1,
+        "channel.fullName": 1,
         "channel.email": 1,
         "channel.avatar": 1,
+        "channel.channelSubscribers": 1,
+        "channel.isSubscribed": 1,
         subscriber: 1,
       },
     },
@@ -192,12 +230,19 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
     options
   );
 
-  // cache the response
-  const { redisClient } = req.app.locals || {};
+  // search the result
+  const searchedResult = result.docs.filter(({ channel }) => {
+    if (search) {
+      return (
+        channel.username.toLowerCase().includes(search.toLowerCase()) ||
+        channel.fullName.toLowerCase().includes(search.toLowerCase())
+      );
+    }
+  });
   const response = new ApiResponse(
     200,
     {
-      subscribedChannels: result.docs,
+      subscribedChannels: search ? searchedResult : result.docs,
       totalSubscribedChannels: result.totalDocs,
       totalPages: result.totalPages,
       currentPage: result.page,
@@ -206,7 +251,8 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
     },
     "Subscribed channels list"
   );
-  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  // cache the response
+  await setCache(req, response, cacheKey);
   return res.status(200).json(response);
 });
 
@@ -224,7 +270,6 @@ const checkSubscriptionStatus = asyncHandler(async (req, res) => {
   if (!isValidObjectId(channelId)) {
     throw new ApiError(400, "Invalid channel id");
   }
-  console.log("req.user?._id:", req.user?._id);
   const data = await Subscription.exists({
     subscriber: req.user?._id,
     channel: channelId,
@@ -247,5 +292,6 @@ export {
   checkSubscriptionStatus,
   getSubscribedChannels,
   getUserChannelSubscribers,
-  toggleSubscription,
+  toggleSubscription
 };
+

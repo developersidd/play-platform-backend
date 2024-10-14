@@ -27,6 +27,7 @@ const revalidateRelatedCaches = async (req, prefixKey) => {
   const keys = await redisClient.keys(videoCachePattern);
   console.log("keys:", keys);
   if (keys.length > 0) {
+    console.log("Deleting related caches");
     await redisClient.del(...keys); // Delete all related caches
   }
 };

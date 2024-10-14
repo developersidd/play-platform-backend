@@ -12,6 +12,11 @@ const userSchema = new mongoose.Schema(
       trim: true,
       index: true, // enabling searching ,
     },
+
+    description: {
+      type: String,
+      trim: true,
+    },
     fullName: {
       type: String,
       required: [true, "FullName is required"],

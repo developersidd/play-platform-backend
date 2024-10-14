@@ -13,20 +13,20 @@ import verifyJWT from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
-router.use(verifyJWT); // Apply verifyJWT middleware to all routes in this file
-
-router.route("/").post(createPlaylist);
+router.route("/:userId").post(verifyJWT, createPlaylist);
 
 router
   .route("/:playlistId")
   .get(getPlaylistById)
-  .patch(updatePlaylist)
-  .delete(deletePlaylist);
+  .patch(verifyJWT, updatePlaylist)
+  .delete(verifyJWT, deletePlaylist);
 
-router.route("/add/:videoId/:playlistId").patch(addVideoToPlaylist);
+router.route("/add/v/:videoId/playlistId/:playlistId").patch(verifyJWT, addVideoToPlaylist);
 
-router.route("/remove/:videoId/:playlistId").patch(removeVideoFromPlaylist);
+router
+  .route("/remove/:videoId/:playlistId")
+  .patch(verifyJWT, removeVideoFromPlaylist);
 
-router.route("/user/:userId").get(getUserPlaylists);
+router.route("/user/:username").get(getUserPlaylists);
 
 export default router;

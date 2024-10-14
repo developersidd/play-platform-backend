@@ -1,10 +1,12 @@
-import { Types, isValidObjectId } from "mongoose";
+import { isValidObjectId } from "mongoose";
+import User from "../models/user.model.js";
 import Video from "../models/video.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import formatDuration from "../utils/formatDuration.js";
+import { createMongoId } from "../utils/mongodb.util.js";
 import {
   checkCache,
   generateCacheKey,
@@ -19,14 +21,12 @@ const getAllVideos = asyncHandler(async (req, res) => {
   const {
     page = 1,
     limit = 10,
-    sortBy = "createdAt",
-    sortType = "desc",
-    userId,
+    sortBy ,
+    sortType,
+    username,
     q,
   } = req.query || {};
-  console.log("q:", q);
-  // Generate cache key
-
+  //throw new ApiError(400, "Invalid query parameters");
   // search query
   const searchQuery = { isPublished: true };
   if (q) {
@@ -37,12 +37,12 @@ const getAllVideos = asyncHandler(async (req, res) => {
     ];
   }
   // console.log("searchQuery:", JSON.stringify(searchQuery, null, 2));
-  if (userId) {
-    if (!isValidObjectId(userId)) {
-      throw new ApiError(400, "Invalid User Id");
+  if (username) {
+    const userId = await User.findOne({ username }).select("_id");
+    if (!userId) {
+      throw new ApiError(404, "User not found");
     }
-    const mongoId = new Types.ObjectId(userId);
-    searchQuery.owner = mongoId;
+    searchQuery.owner = createMongoId(userId);
   }
   // sort query
   const sortQuery = {};
@@ -52,14 +52,11 @@ const getAllVideos = asyncHandler(async (req, res) => {
     sortQuery.createdAt = -1;
   }
   const cacheKey = generateCacheKey("all-videos", req.query);
-  // await revalidateRelatedCaches(req, "all-videos");
   // Check cache
+  // await revalidateRelatedCaches(req, "all-videos");
   const cachedRes = await checkCache(req, cacheKey);
   if (cachedRes) {
-    /* console.log(
-        "cacheRes",
-        util.inspect(cachedRes, { showHidden: false, depth: null, colors: true })
-      ); */
+
 
     return res.status(200).json(cachedRes);
   }
@@ -221,6 +218,9 @@ const updateAllVideo = asyncHandler(async (req, res) => {
 //  Publish video
 const publishVideo = asyncHandler(async (req, res) => {
   const { title, description, tags } = req.body;
+  console.log("req.body:", req.body)
+  console.log(".file:", req.file)
+  console.log(".files:", req.files)
   const videoLocalPath = (req.files?.videoFile ?? [])[0]?.path;
   const thumbnailLocalPath = (req.files?.thumbnail ?? [])[0]?.path;
   if (!videoLocalPath || !thumbnailLocalPath) {
@@ -228,8 +228,7 @@ const publishVideo = asyncHandler(async (req, res) => {
   }
 
   if (
-    [title, description].some((value) => value?.trim() === "") ||
-    tags.length === 0
+    [title, description].some((value) => value?.trim() === "") 
   ) {
     throw new ApiError(400, "Please provide All required fields");
   }
@@ -348,5 +347,6 @@ export {
   publishVideo,
   updateAllVideo,
   updateVideoById,
-  updateVideoPublishStatus,
+  updateVideoPublishStatus
 };
+

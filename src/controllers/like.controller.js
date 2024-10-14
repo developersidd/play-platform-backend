@@ -6,6 +6,7 @@ import Video from "../models/video.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
+import { generateCacheKey, revalidateRelatedCaches } from "../utils/redis.util.js";
 
 const toggleVideoLike = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
@@ -73,9 +74,11 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
     tweet: tweetId,
     likedBy: req.user._id,
   });
+  // delete user tweets cache
+  await revalidateRelatedCaches(req, "user-tweets");
   if (existingLike) {
     await Like.findByIdAndDelete(existingLike._id);
-    return res.status(200).json(new ApiResponse(200, {}, "Disliked"));
+    return res.status(200).json(new ApiResponse(200, {}, "Liked removed"));
   }
   const tweetLike = await Like.create({
     tweet: tweetId,

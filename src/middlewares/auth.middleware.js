@@ -17,17 +17,13 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
       accessToken,
       process.env.ACCESS_TOKEN_SECRET
     );
-    // console.log("decodedTokensss:", decodedToken);
     const user = await User.findById(decodedToken?._id).select("-password");
-    // console.log("userssss:", user);
     const userAgent = req.headers["user-agent"];
 
     const loginHistory = await LoginHistory.findOne({
       $and: [{ user: user?._id }, { userAgent }],
     });
-    // console.log("loginHistory:", loginHistory);
-    // console.log("loginHistory:", loginHistory);
-    // console.log("loginHistory from auth:", loginHistory);
+    
     if (!user) {
       throw new ApiError(401, "Invalid Access Token");
     }

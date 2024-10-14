@@ -312,6 +312,8 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
   await user.save({
     validateBeforeSave: false,
   });
+  user.password = undefined;
+  user.refreshToken = undefined;
   return res
     .status(200)
     .json(new ApiResponse(200, user, "Password changed successfully"));
@@ -391,8 +393,9 @@ const getCurrentUser = asyncHandler((req, res) =>
 
 // update account  details
 const updateAccountDetails = asyncHandler(async (req, res) => {
-  const { fullName, email } = req.body || {};
-  if (!(fullName || email)) {
+  const { fullName, email, username, description } = req.body || {};
+  console.log("description:", description)
+  if (!(fullName || email || username || description)) {
     throw new ApiError(400, "Please provide all required fields");
   }
   const user = await User.findByIdAndUpdate(
@@ -401,6 +404,8 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
       $set: {
         fullName,
         email,
+        username,
+        description,
       },
     },
     { new: true }
@@ -459,18 +464,17 @@ const updateCoverImage = asyncHandler(async (req, res) => {
   if (!coverImageLocalPath) {
     throw new ApiError(400, "Cover Image file is missing");
   }
-
   const { public_id, url } =
     (await uploadOnCloudinary(coverImageLocalPath)) || {};
 
-  if (!url) {
-    throw new ApiError(500, "Error occurred while updating cover Image");
-  }
-
-  const user = await User.findByIdAndUpdate(
-    reqUser?._id,
-    {
-      $set: {
+    if (!url) {
+      throw new ApiError(500, "Error occurred while updating cover Image");
+    }
+    
+    const user = await User.findByIdAndUpdate(
+      reqUser?._id,
+      {
+        $set: {
         coverImage: {
           url,
           public_id,
