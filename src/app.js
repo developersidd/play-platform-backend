@@ -21,7 +21,7 @@ import ApiError from "./utils/ApiError.js";
 const app = express();
 
 // Redis Cache
-const connectRedis = async () => {
+/* const connectRedis = async () => {
   const client = await createClient({
     password: process.env.REDIS_PASSWORD, 
     socket: {
@@ -29,12 +29,41 @@ const connectRedis = async () => {
       port: process.env.REDIS_PORT, 
     },
   })
-    .on("error", (err) => console.log("Redis Client Error", err))
-    .connect();
+  .on("error", (err) => console.log("Redis Client Error", err))
+  .connect();
+  console.log("client:", client)
   app.locals.redisClient = client;
-};
+  };
+  
+  connectRedis();
+  */
+ const client = createClient({
+   password: process.env.REDIS_PASSWORD,
+  socket: {
+    host: process.env.REDIS_HOST,
+    port: process.env.REDIS_PORT,
+  },
+});
 
-connectRedis();
+client.on("error", (err) => {
+  console.error("Redis error:", err);
+});
+
+// logs all regis env variables
+console.log("REDIS_PASSWORD:", process.env.REDIS_PASSWORD);
+console.log("REDIS_HOST:", process.env.REDIS_HOST);
+
+(async () => {
+  try {
+  const res =  await client.connect();
+    console.log("res:", res)
+    console.log("Connected to Redis");
+    app.locals.redisClient = res;
+  } catch (err) {
+    console.error("Could not connect to Redis:", err);
+  }
+})();
+
 // Middlewares
 app.use(express.json({ limit: "20kb" }));
 // for parsing application/x-www-form-urlencoded data from the client side form submission (e.g., login form) and extended: true allows for nested objects in the form data
