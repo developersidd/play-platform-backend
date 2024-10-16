@@ -2,11 +2,13 @@ import express from "express";
 import {
   deleteVideo,
   getAllVideos,
+  getLikedVideos,
   getRelatedVideos,
   getVideoById,
   publishVideo,
   updateAllVideo,
   updateVideoById,
+  updateVideoCount,
   updateVideoPublishStatus,
 } from "../controllers/video.controller.js";
 import verifyJWT from "../middlewares/auth.middleware.js";
@@ -34,8 +36,14 @@ router
   .patch(verifyJWT, updateAllVideo)
   .get(getAllVideos);
 // related video routes
-
 router.get("/related/:id", getRelatedVideos);
+
+// update views count
+router.patch("/update-views/:id", updateVideoCount);
+
+// get all liked videos
+router.get("/liked", verifyJWT, getLikedVideos);
+
 // single video routes
 router
   .route("/:id")

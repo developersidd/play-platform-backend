@@ -12,7 +12,7 @@ const router = Router();
 router.route("/u/:channelId").get(getUserChannelSubscribers);
 router.route("/c/:username").get(getSubscribedChannels);
 router.use(verifyJWT); // Apply verifyJWT middleware to all routes in this file
-router.post("/c/:channelId/:su", toggleSubscription);
+router.post("/c/:channelId", toggleSubscription);
 
 router.route("/status/c/:channelId").get(checkSubscriptionStatus);
 

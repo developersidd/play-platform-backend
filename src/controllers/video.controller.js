@@ -1,4 +1,5 @@
 import { isValidObjectId } from "mongoose";
+import Like from "../models/like.model.js";
 import User from "../models/user.model.js";
 import Video from "../models/video.model.js";
 import ApiError from "../utils/ApiError.js";
@@ -8,6 +9,7 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import formatDuration from "../utils/formatDuration.js";
 import { createMongoId } from "../utils/mongodb.util.js";
 import {
+  addViewIfNotExists,
   checkCache,
   generateCacheKey,
   revalidateCache,
@@ -21,12 +23,12 @@ const getAllVideos = asyncHandler(async (req, res) => {
   const {
     page = 1,
     limit = 10,
-    sortBy ,
+    sortBy,
     sortType,
     username,
     q,
   } = req.query || {};
-  //throw new ApiError(400, "Invalid query parameters");
+  // throw new ApiError(400, "Invalid query parameters");
   // search query
   const searchQuery = { isPublished: true };
   if (q) {
@@ -56,8 +58,6 @@ const getAllVideos = asyncHandler(async (req, res) => {
   // await revalidateRelatedCaches(req, "all-videos");
   const cachedRes = await checkCache(req, cacheKey);
   if (cachedRes) {
-
-
     return res.status(200).json(cachedRes);
   }
 
@@ -145,6 +145,23 @@ const getVideoById = asyncHandler(async (req, res) => {
   return res.status(200).json(response);
 });
 
+// API endpoint for viewing a video
+const updateVideoCount = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const userIp = req.ip; // You could also use session/cookie if logged-in users
+  console.log("userIp:", userIp);
+  const video = await Video.findById(id);
+  if (!video) {
+    throw new ApiError(404, "Video not found");
+  }
+  const viewAdded = await addViewIfNotExists(req, id, userIp);
+  console.log("viewAdded:", viewAdded);
+  if (viewAdded) {
+    return res.status(200).json(new ApiResponse(200, "View added", {}));
+  }
+  return res.status(200).json(409, "View already exists", {});
+});
+
 // Update video by id
 const updateVideoById = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
@@ -218,18 +235,16 @@ const updateAllVideo = asyncHandler(async (req, res) => {
 //  Publish video
 const publishVideo = asyncHandler(async (req, res) => {
   const { title, description, tags } = req.body;
-  console.log("req.body:", req.body)
-  console.log(".file:", req.file)
-  console.log(".files:", req.files)
+  console.log("req.body:", req.body);
+  console.log(".file:", req.file);
+  console.log(".files:", req.files);
   const videoLocalPath = (req.files?.videoFile ?? [])[0]?.path;
   const thumbnailLocalPath = (req.files?.thumbnail ?? [])[0]?.path;
   if (!videoLocalPath || !thumbnailLocalPath) {
     throw new ApiError(400, "Thumbnail and Video Files are required");
   }
 
-  if (
-    [title, description].some((value) => value?.trim() === "") 
-  ) {
+  if ([title, description].some((value) => value?.trim() === "")) {
     throw new ApiError(400, "Please provide All required fields");
   }
   //  upload video and thumbnail on cloudinary
@@ -338,15 +353,78 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
   // await setCache(req, response, cacheKey);
   return res.status(200).json(response);
 });
+const getLikedVideos = asyncHandler(async (req, res) => {
+  // TODO: get all liked videos
+  const videos = await Like.aggregate([
+    {
+      $match: {
+        likedBy: req.user?._id,
+        video: { $exists: true },
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "video",
+        foreignField: "_id",
+        as: "video",
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    _id: 1,
+                    username: 1,
+                    fullName: 1,
+                    email: 1,
+                    avatar: 1,
+                    coverImage: 1,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $set: {
+              owner: {
+                $first: "$owner",
+              },
+            },
+          }
+        ],
+      },
+    },
+
+    {
+      $addFields: {
+        video: { $first: "$video" },
+      },
+    },
+  ]);
+  const response = new ApiResponse(200, videos, "Liked videos found");
+  // cache the response
+  await setCache(
+    req,
+    response,
+    generateCacheKey("liked-videos", req.user?._id)
+  );
+  return res.status(200).json(response);
+});
 
 export {
   deleteVideo,
   getAllVideos,
+  getLikedVideos,
   getRelatedVideos,
   getVideoById,
   publishVideo,
   updateAllVideo,
   updateVideoById,
-  updateVideoPublishStatus
+  updateVideoCount,
+  updateVideoPublishStatus,
 };
-

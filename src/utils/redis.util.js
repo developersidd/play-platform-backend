@@ -1,3 +1,5 @@
+import Video from "../models/video.model.js";
+
 const generateCacheKey = (resource, props) =>
   `app:${resource}:${JSON.stringify(props)}`;
 
@@ -11,9 +13,10 @@ const checkCache = async (req, cacheKey) => {
   return false;
 };
 
-const setCache = async (req, data, cacheKey) => {
+// default duration is 1 hour
+const setCache = async (req, data, cacheKey, duration = 3600) => {
   const { redisClient } = req.app.locals || {};
-  await redisClient.setEx(cacheKey, 3600, JSON.stringify(data));
+  await redisClient.setEx(cacheKey, duration, JSON.stringify(data));
 };
 
 const revalidateCache = async (req, cacheKey) => {
@@ -31,7 +34,30 @@ const revalidateRelatedCaches = async (req, prefixKey) => {
     await redisClient.del(...keys); // Delete all related caches
   }
 };
+// Helper function to check and add views in Redis
+async function addViewIfNotExists(req, videoId, userIp) {
+  const redisKey = `video:${videoId}:viewedBy:${userIp}`;
+  const videoCacheKey = generateCacheKey("video", videoId);
+
+  // Check if the user (IP) has already viewed the video within the last 24 hours
+  const viewExists = await checkCache(req, redisKey);
+  console.log("viewExists:", viewExists)
+
+  if (!viewExists) {
+    // Set a key with an expiry of 24 hours (86400 seconds) in Redis
+    await setCache(req, true, redisKey, 86400);
+
+    // Increment the view count in MongoDB
+    await Video.findByIdAndUpdate(videoId, { $inc: { views: 1 } });
+    await revalidateCache(req, videoCacheKey); // Revalidate the video cache
+    return true; // View added
+  }
+
+  return false; // View not added
+}
+
 export {
+  addViewIfNotExists,
   checkCache,
   generateCacheKey,
   revalidateCache,

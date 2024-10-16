@@ -6,7 +6,7 @@ import Video from "../models/video.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { generateCacheKey, revalidateRelatedCaches } from "../utils/redis.util.js";
+import { generateCacheKey, revalidateCache, revalidateRelatedCaches } from "../utils/redis.util.js";
 
 const toggleVideoLike = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
@@ -18,6 +18,10 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
   if (!(await Video.exists({ _id: videoId }))) {
     throw new ApiError(404, "Video not found");
   }
+
+  // revalidate liked videos cache
+  await revalidateCache(req, generateCacheKey("liked-videos", req.user?._id));
+
 
   const existingLike = await Like.findOne({
     video: videoId,
@@ -87,35 +91,6 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, tweetLike, "Liked"));
 });
 
-const getLikedVideos = asyncHandler(async (req, res) => {
-  // TODO: get all liked videos
-  const videos = await Like.aggregate([
-    {
-      $match: {
-        likedBy: req.user._id,
-        video: { $exists: true },
-      },
-    },
-    {
-      $lookup: {
-        from: "videos",
-        localField: "video",
-        foreignField: "_id",
-        as: "video",
-      },
-    },
-    {
-      $addFields: {
-        video: { $first: "$video" },
-      },
-    },
-  ]);
-  const response = new ApiResponse(200, videos, "Liked videos found");
-  // cache the response
-  const { redisClient } = req.app.locals || {};
-  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
-  return res.status(200).json();
-});
 
 const getVideoLikes = asyncHandler(async (req, res) => {
   const { videoId } = req.params || {};
@@ -158,7 +133,6 @@ const getVideoLikes = asyncHandler(async (req, res) => {
 });
 
 export {
-  getLikedVideos,
   getVideoLikes,
   toggleCommentLike,
   toggleTweetLike,

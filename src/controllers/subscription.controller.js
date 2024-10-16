@@ -8,20 +8,20 @@ import { createMongoId } from "../utils/mongodb.util.js";
 import { checkCache, generateCacheKey, setCache } from "../utils/redis.util.js";
 
 const toggleSubscription = asyncHandler(async (req, res) => {
-  const { channelId, su } = req.params;
-  const { redisClient } = req.app.locals || {};
+  const { channelId } = req.params;
+  const subscriber = req.user?._id;
   if (!isValidObjectId(channelId)) {
     throw new ApiError(400, "Invalid channel id");
   }
 
   const isSubscribed = await Subscription.exists({
-    subscriber: su,
+    subscriber,
     channel: channelId,
   });
   // if user is already subscribed, then unsubscribe
   if (isSubscribed) {
     await Subscription.deleteOne({
-      subscriber: su,
+      subscriber,
       channel: channelId,
     });
     return res
@@ -31,7 +31,7 @@ const toggleSubscription = asyncHandler(async (req, res) => {
 
   //  if user is not subscribed, then subscribe
   const subscription = await Subscription.create({
-    subscriber: su,
+    subscriber,
     channel: channelId,
   });
 
@@ -151,7 +151,7 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
     search,
     page,
     limit,
-  })
+  });
 
   // check cache
   const cachedData = await checkCache(req, cacheKey);
@@ -292,6 +292,5 @@ export {
   checkSubscriptionStatus,
   getSubscribedChannels,
   getUserChannelSubscribers,
-  toggleSubscription
+  toggleSubscription,
 };
-
