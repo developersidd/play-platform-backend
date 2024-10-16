@@ -22,11 +22,18 @@ const app = express();
 
 // Redis Cache
 const connectRedis = async () => {
-  const client = await createClient()
+  const client = await createClient({
+    password: process.env.REDIS_PASSWORD, 
+    socket: {
+      host: process.env.REDIS_HOST, 
+      port: process.env.REDIS_PORT, 
+    },
+  })
     .on("error", (err) => console.log("Redis Client Error", err))
     .connect();
   app.locals.redisClient = client;
 };
+
 connectRedis();
 // Middlewares
 app.use(express.json({ limit: "20kb" }));
