@@ -6,7 +6,13 @@ import Video from "../models/video.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { generateCacheKey, revalidateCache, revalidateRelatedCaches } from "../utils/redis.util.js";
+import {
+  checkCache,
+  generateCacheKey,
+  revalidateCache,
+  revalidateRelatedCaches,
+  setCache,
+} from "../utils/redis.util.js";
 
 const toggleVideoLike = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
@@ -20,8 +26,9 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
   }
 
   // revalidate liked videos cache
-  await revalidateCache(req, generateCacheKey("liked-videos", req.user?._id));
-
+  const likedVideosCacheKey = generateCacheKey("liked-videos", req.user._id);
+  const videoCacheKey = generateCacheKey("video", videoId);
+  await revalidateCache(req, [likedVideosCacheKey, videoCacheKey]);
 
   const existingLike = await Like.findOne({
     video: videoId,
@@ -91,17 +98,16 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, tweetLike, "Liked"));
 });
 
-
 const getVideoLikes = asyncHandler(async (req, res) => {
   const { videoId } = req.params || {};
   const { userId } = req.query || {};
+  console.log("userId:", userId);
 
-  const { redisClient } = req.app.locals || {};
-  const cachedData = await redisClient.get("video-likes");
-
+  const cacheKey = generateCacheKey("video-likes", videoId);
+  // await revalidateCache(req, cacheKey);
+  const cachedData = await checkCache(req, cacheKey);
   if (cachedData) {
-    console.log("from cache");
-    return res.status(200).json(JSON.parse(cachedData));
+    return res.status(200).json(cachedData);
   }
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video id");
@@ -119,6 +125,7 @@ const getVideoLikes = asyncHandler(async (req, res) => {
       video: videoId,
       likedBy: userId,
     }));
+  console.log("isLiked:", isLiked);
   const response = new ApiResponse(
     200,
     {
@@ -128,13 +135,8 @@ const getVideoLikes = asyncHandler(async (req, res) => {
     "video likes count"
   );
 
-  await redisClient.setEx("video-likes", 3600, JSON.stringify(response));
+  await setCache(req, response, cacheKey);
   return res.status(200).json(response);
 });
 
-export {
-  getVideoLikes,
-  toggleCommentLike,
-  toggleTweetLike,
-  toggleVideoLike,
-};
+export { getVideoLikes, toggleCommentLike, toggleTweetLike, toggleVideoLike };

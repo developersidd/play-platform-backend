@@ -10,8 +10,8 @@ import verifyJWT from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 router.get("/video/:videoId", getVideoDisLikes);
-router.use(verifyJWT);
 router.get("/my/videos", getDisLikedVideos);
+router.use(verifyJWT);
 router.post("/toggle/v/:videoId", toggleVideoDisLike);
 router.post("/toggle/c/:commentId", toggleCommentDisLike);
 router.post("/toggle/t/:tweetId", toggleTweetDisLike);

@@ -10,6 +10,7 @@ const likeSchema = new Schema(
       type: Types.ObjectId,
       ref: "User",
       required: [true, "User Id is required"],
+      index: true,
     },
 
     video: {

@@ -1,4 +1,5 @@
 import { isValidObjectId } from "mongoose";
+import { addToWatchHistory } from "../helpers/video.helper.js";
 import Like from "../models/like.model.js";
 import User from "../models/user.model.js";
 import Video from "../models/video.model.js";
@@ -126,21 +127,92 @@ const getAllVideos = asyncHandler(async (req, res) => {
 // Get video by id
 const getVideoById = asyncHandler(async (req, res) => {
   const videoId = req.params.id;
+  const userId = req?.query?.userId || "guest";
+  const mongoLoggedInUserId = createMongoId(userId);
   // Generate cache key
-  const cacheKey = generateCacheKey("video", videoId);
+  const cacheKey = generateCacheKey("video", videoId, userId);
+  // await revalidateCache(req, cacheKey);
   // Check cache
-  await checkCache(req, cacheKey);
-  const video = await Video.findById(videoId).populate({
-    path: "owner",
-    model: "User",
-    select: "_id username fullName email avatar",
-  });
+  // Add video to watch history
+  if (isValidObjectId(userId) && userId !== "guest") {
+    console.log("Adding to watch history");
+    await addToWatchHistory(mongoLoggedInUserId, videoId);
+    console.log("Added to watch history");
+  }
+  const cachedData = await checkCache(req, cacheKey);
+  if (cachedData) {
+    return res.status(200).json(cachedData);
+  }
 
-  if (!video) {
+  const video = await Video.aggregate([
+    {
+      $match: {
+        _id: createMongoId(videoId),
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+        pipeline: [
+          {
+            $project: {
+              _id: 1,
+              username: 1,
+              fullName: 1,
+              email: 1,
+              avatar: 1,
+              coverImage: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
+      // lookup likes and dislikes count also check if user liked or disliked
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "video",
+        as: "likes",
+      },
+    },
+    {
+      $lookup: {
+        from: "dislikes",
+        localField: "_id",
+        foreignField: "video",
+        as: "dislikes",
+      },
+    },
+    {
+      $set: {
+        isLiked: {
+          $in: [mongoLoggedInUserId, "$likes.likedBy"],
+        },
+        isDisliked: {
+          $in: [mongoLoggedInUserId, "$dislikes.dislikedBy"],
+        },
+        likes: {
+          $size: "$likes",
+        },
+        dislikes: {
+          $size: "$dislikes",
+        },
+        owner: {
+          $first: "$owner",
+        },
+      },
+    },
+  ]);
+
+  if (!video?.length) {
     throw new ApiError(404, "Video not found");
   }
   // Cache the response
-  const response = new ApiResponse(200, video, "Video found");
+  const response = new ApiResponse(200, (video || [])[0], "Video found");
   await setCache(req, response, cacheKey);
   return res.status(200).json(response);
 });
@@ -395,7 +467,7 @@ const getLikedVideos = asyncHandler(async (req, res) => {
                 $first: "$owner",
               },
             },
-          }
+          },
         ],
       },
     },

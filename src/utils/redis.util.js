@@ -1,7 +1,7 @@
 import Video from "../models/video.model.js";
 
-const generateCacheKey = (resource, props) =>
-  `app:${resource}:${JSON.stringify(props)}`;
+const generateCacheKey = (resource, ...props) =>
+  `app:${resource}:${JSON.stringify(...props)}`;
 
 const checkCache = async (req, cacheKey) => {
   const { redisClient } = req.app.locals || {};

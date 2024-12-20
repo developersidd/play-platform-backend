@@ -6,11 +6,14 @@ import Video from "../models/video.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import disLike from "../models/dislike.model.js";
+import { checkCache, generateCacheKey, revalidateCache, setCache } from "../utils/redis.util.js";
 
 const toggleVideoDisLike = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
   console.log("videoId:", videoId);
+  const videoCacheKey = generateCacheKey("video", videoId);
+  await revalidateCache(req, videoCacheKey);
+
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video id");
   }
@@ -122,8 +125,9 @@ const getDisLikedVideos = asyncHandler(async (req, res) => {
 const getVideoDisLikes = asyncHandler(async (req, res) => {
   const { videoId } = req.params || {};
   const { userId } = req.query || {};
-  const { redisClient } = req.app.locals || {};
-  const cachedData = await redisClient.get("video-dislikes");
+
+  const cacheKey = generateCacheKey("video-dislikes", videoId);
+  const cachedData = await checkCache(req, cacheKey);
 
   if (cachedData) {
     console.log("from cache");
@@ -141,6 +145,7 @@ const getVideoDisLikes = asyncHandler(async (req, res) => {
   const dislikes = await DisLike.countDocuments({
     video: videoId,
   });
+  console.log("dislikes:", dislikes)
 
   const isDisliked =
     userId &&
@@ -157,7 +162,7 @@ const getVideoDisLikes = asyncHandler(async (req, res) => {
     "video dislikes count"
   );
 
-  await redisClient.setEx("video-dislikes", 3600, JSON.stringify(response));
+  await setCache(req, JSON.stringify(response), cacheKey);
 
   return res.status(200).json(response);
 });

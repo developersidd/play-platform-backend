@@ -68,8 +68,14 @@ const userSchema = new mongoose.Schema(
     },
     watchHistory: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Video",
+        createdAt: {
+          type: Date,
+          default: new Date(),
+        },
+        videoId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Video",
+        },
       },
     ],
     password: {
