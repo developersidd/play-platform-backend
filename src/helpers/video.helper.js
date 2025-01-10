@@ -1,23 +1,40 @@
+import User from "../models/user.model.js";
+
 const addToWatchHistory = async (userId, videoId) => {
   try {
     // Find the user by ID
     const user = await User.findById(userId);
+    if (user?.isHistoryPaused) return;
 
-    // Check if the video already exists in the user's watch history
-    const videoIndex = user.watchHistory.findIndex((item) =>
-      item?.videoId.equals(videoId)
-    );
+    // check if video already exists in watchHistory array
+    const videoExists = await User.exists({
+      _id: userId,
+      "watchHistory.videoId": videoId,
+    });
 
-    if (videoIndex !== -1) {
-      // If the video already exists, remove it from its current position
-      user.watchHistory.splice(videoIndex, 1);
+    // if video exists, remove it from the watchHistory array
+    if (videoExists) {
+      await User.updateOne(
+        { _id: userId },
+        { $pull: { watchHistory: { videoId } } }
+      );
     }
 
-    // Add the video to the front of the watch history
-    user.watchHistory.unshift({
-      videoId,
-      createdAt: new Date(),
-    });
+    //  change the position of the video to the front in watchHistory array with mongoose
+    await User.updateOne(
+      { _id: userId },
+      {
+        $push: {
+          watchHistory: {
+            $each: [{ videoId, createdAt: new Date() }], // Add the new entry at the start
+            $position: 0,
+          },
+        },
+      },
+      {
+        upsert: true,
+      }
+    );
 
     // Optionally: Limit the size of the watch history (e.g., to 50 items)
     if (user.watchHistory.length > 50) {
@@ -26,6 +43,7 @@ const addToWatchHistory = async (userId, videoId) => {
 
     // Save the updated user document
     await user.save();
+    console.log("Adding to watch history");
 
     return { success: true, message: "Video added to watch history." };
   } catch (error) {

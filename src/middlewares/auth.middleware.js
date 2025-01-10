@@ -6,9 +6,11 @@ import asyncHandler from "../utils/asyncHandler.js";
 
 const verifyJWT = asyncHandler(async (req, _, next) => {
   try {
+    console.log("req?.cookies:", req?.cookies)
     const accessToken =
-      req?.cookies?.accessToken ||
-      req.header("Authorization")?.replace("Bearer ", "");
+    req?.cookies?.accessToken ||
+    req.header("Authorization")?.replace("Bearer ", "");
+    console.log("accessToken:", accessToken)
     if (!accessToken) {
       throw new ApiError(401, "Unauthorized access");
     }
@@ -18,13 +20,11 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
       process.env.ACCESS_TOKEN_SECRET
     );
     const user = await User.findById(decodedToken?._id).select("-password");
-    console.log("user:", user)
     const userAgent = req.headers["user-agent"];
 
     const loginHistory = await LoginHistory.findOne({
       $and: [{ user: user?._id }, { userAgent }],
     });
-    console.log("loginHistory:", loginHistory)
     
     if (!user) {
       throw new ApiError(401, "Invalid Access Token");

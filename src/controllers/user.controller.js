@@ -394,7 +394,7 @@ const getCurrentUser = asyncHandler((req, res) =>
 // update account  details
 const updateAccountDetails = asyncHandler(async (req, res) => {
   const { fullName, email, username, description } = req.body || {};
-  console.log("description:", description)
+  console.log("description:", description);
   if (!(fullName || email || username || description)) {
     throw new ApiError(400, "Please provide all required fields");
   }
@@ -467,14 +467,14 @@ const updateCoverImage = asyncHandler(async (req, res) => {
   const { public_id, url } =
     (await uploadOnCloudinary(coverImageLocalPath)) || {};
 
-    if (!url) {
-      throw new ApiError(500, "Error occurred while updating cover Image");
-    }
-    
-    const user = await User.findByIdAndUpdate(
-      reqUser?._id,
-      {
-        $set: {
+  if (!url) {
+    throw new ApiError(500, "Error occurred while updating cover Image");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    reqUser?._id,
+    {
+      $set: {
         coverImage: {
           url,
           public_id,
@@ -575,27 +575,33 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
 
 const getWatchHistory = asyncHandler(async (req, res) => {
   // you need to create a mongoDB Object Id to find by user id because agreegation works directly with mongoDB not used mongoose
+  const { q } = req.query || {};
   const userId = createMongoId(req?.user?._id);
+  const searchQuery = {};
+  const decodedQuery = decodeURIComponent(q);
+  if (decodedQuery !== "undefined" && decodedQuery) {
+    searchQuery.$or = [
+      { title: { $regex: decodedQuery, $options: "i" } },
+      { description: { $regex: decodedQuery, $options: "i" } },
+    ];
+  }
   const user = await User.aggregate([
     {
-      $match: {
-        _id: userId,
-      },
+      $match: { _id: userId }, // Match the user
     },
-
+    {
+      $unwind: "$watchHistory", // Flatten watchHistory array
+    },
     {
       $lookup: {
         from: "videos",
-        localField: "watchHistory",
+        localField: "watchHistory.videoId",
         foreignField: "_id",
-        as: "watchHistory",
-        /* populate: {
-          path: "owner",
-          model: "User",
-          select: "username avatar",
-        },
-        */
+        as: "videoDetails",
         pipeline: [
+          {
+            $match: searchQuery,
+          },
           {
             $lookup: {
               from: "users",
@@ -616,29 +622,94 @@ const getWatchHistory = asyncHandler(async (req, res) => {
           {
             $set: {
               owner: {
-                // $arrayElemtAt: ["$owner", 0],
                 $first: "$owner",
               },
             },
           },
-          /* {
+
+          {
             $project: {
-              title: 1,    
-            }
-          } */
+              title: 1,
+              description: 1,
+              thumbnail: 1,
+              duration: 1,
+              createdAt: 1,
+              views: 1,
+              owner: 1,
+            },
+          },
         ],
       },
     },
+    {
+      $set: {
+        "watchHistory.video": { $arrayElemAt: ["$videoDetails", 0] }, // Add video details to watchHistory
+      },
+    },
+    
+    {
+      $group: {
+        _id: {
+          $dateToString: {
+            format: "%Y-%m-%d", // Group by formatted date
+            date: "$watchHistory.createdAt", // Use the createdAt field from watchHistory
+          },
+        },
+        videos: { $push: "$watchHistory" }, // Push all watchHistory objects for the group
+      },
+    },
+    {
+      $sort: { _id: -1 }, // Sort groups by date in descending order
+    },
   ]);
+
+  // console.log("user:", JSON.stringify(user, null, 2));
   // cache the response
-  const { redisClient } = req.app.locals || {};
-  const response = new ApiResponse(
-    200,
-    user[0]?.watchHistory,
-    "Watch history found"
-  );
-  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  const response = new ApiResponse(200, user, "Watch history found");
+  /* redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response)); */
   return res.status(200).json(response);
+});
+
+// Clear watch history
+const clearWatchHistory = asyncHandler(async (req, res) => {
+  const user = await User.findByIdAndUpdate(
+    req?.user?._id,
+    {
+      $set: {
+        watchHistory: [],
+      },
+    },
+    {
+      new: true,
+    }
+  );
+  if (!user) {
+    throw new ApiError(500, "Error occurred while clearing watch history");
+  }
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Watch history cleared successfully"));
+});
+
+// Toggle history pause state
+const toggleHistoryPauseState = asyncHandler(async (req, res) => {
+  const user = await User.findById(req?.user?._id);
+  if (!user) {
+    throw new ApiError(404, "User not found");
+  }
+  user.isHistoryPaused = !user.isHistoryPaused;
+  await user.save({ validateBeforeSave: false });
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        isHistoryPaused: user?.isHistoryPaused,
+      },
+      user?.isHistoryPaused
+        ? "Watch history paused successfully"
+        : "Watch history resumed successfully"
+    )
+  );
 });
 
 const getAllUsers = asyncHandler(async (req, res) => {
@@ -648,6 +719,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
 
 export {
   changeCurrentPassword,
+  clearWatchHistory,
   forgotPassword,
   getAllUsers,
   getCurrentUser,
@@ -659,6 +731,7 @@ export {
   registerUser,
   resetPassword,
   sendEmailVerificationCode,
+  toggleHistoryPauseState,
   updateAccountDetails,
   updateAvatar,
   updateCoverImage,

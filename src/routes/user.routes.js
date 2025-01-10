@@ -2,6 +2,7 @@ import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import {
   changeCurrentPassword,
+  clearWatchHistory,
   forgotPassword,
   getAllUsers,
   getCurrentUser,
@@ -9,6 +10,7 @@ import {
   getWatchHistory,
   loginUser,
   logoutUser,
+  toggleHistoryPauseState,
   refreshAccessToken,
   registerUser,
   resetPassword,
@@ -49,6 +51,13 @@ router.route("/logout").post(verifyJWT, logoutUser);
 router.route("/refresh-token").post(refreshAccessToken);
 // get watch history
 router.route("/history").get(verifyJWT, getWatchHistory);
+
+// clear watch history
+router.route("/history/clear").delete(verifyJWT, clearWatchHistory);
+
+// pause watch history
+router.route("/history/toggle-pause").patch(verifyJWT, toggleHistoryPauseState);
+
 // get user channel profile
 router.route("/c/:username").get(getUserChannelProfile);
 // change password route

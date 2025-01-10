@@ -127,6 +127,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
 // Get video by id
 const getVideoById = asyncHandler(async (req, res) => {
   const videoId = req.params.id;
+  console.log("videoId:", videoId);
   const userId = req?.query?.userId || "guest";
   const mongoLoggedInUserId = createMongoId(userId);
   // Generate cache key
@@ -135,9 +136,7 @@ const getVideoById = asyncHandler(async (req, res) => {
   // Check cache
   // Add video to watch history
   if (isValidObjectId(userId) && userId !== "guest") {
-    console.log("Adding to watch history");
     await addToWatchHistory(mongoLoggedInUserId, videoId);
-    console.log("Added to watch history");
   }
   const cachedData = await checkCache(req, cacheKey);
   if (cachedData) {
@@ -425,6 +424,7 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
   // await setCache(req, response, cacheKey);
   return res.status(200).json(response);
 });
+
 const getLikedVideos = asyncHandler(async (req, res) => {
   // TODO: get all liked videos
   const videos = await Like.aggregate([

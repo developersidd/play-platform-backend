@@ -2,6 +2,18 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 
+const historyItemSchema = new mongoose.Schema(
+  {
+    videoId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Video",
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
 const userSchema = new mongoose.Schema(
   {
     username: {
@@ -68,16 +80,13 @@ const userSchema = new mongoose.Schema(
     },
     watchHistory: [
       {
-        createdAt: {
-          type: Date,
-          default: new Date(),
-        },
-        videoId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Video",
-        },
+        type: historyItemSchema,
       },
     ],
+    isHistoryPaused: {
+      type: Boolean,
+      default: false,
+    },
     password: {
       type: String,
       /*
