@@ -3,6 +3,7 @@ import rateLimit from "express-rate-limit";
 import {
   changeCurrentPassword,
   clearWatchHistory,
+  deleteVideoFromWatchHistory,
   forgotPassword,
   getAllUsers,
   getCurrentUser,
@@ -10,11 +11,11 @@ import {
   getWatchHistory,
   loginUser,
   logoutUser,
-  toggleHistoryPauseState,
   refreshAccessToken,
   registerUser,
   resetPassword,
   sendEmailVerificationCode,
+  toggleHistoryPauseState,
   updateAccountDetails,
   updateAvatar,
   updateCoverImage,
@@ -57,6 +58,11 @@ router.route("/history/clear").delete(verifyJWT, clearWatchHistory);
 
 // pause watch history
 router.route("/history/toggle-pause").patch(verifyJWT, toggleHistoryPauseState);
+
+// delete video from watch history
+router
+  .route("/history/remove/:videoId")
+  .delete(verifyJWT, deleteVideoFromWatchHistory);
 
 // get user channel profile
 router.route("/c/:username").get(getUserChannelProfile);

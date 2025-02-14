@@ -58,10 +58,10 @@ const getAllVideos = asyncHandler(async (req, res) => {
   // Check cache
   // await revalidateRelatedCaches(req, "all-videos");
   const cachedRes = await checkCache(req, cacheKey);
+  
   if (cachedRes) {
     return res.status(200).json(cachedRes);
   }
-
   // Create the aggregation pipeline
   const aggregateQuery = Video.aggregate([
     {

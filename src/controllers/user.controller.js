@@ -260,38 +260,36 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   if (!incomingRefreshToken) {
     throw new ApiError(401, "Unauthorized request");
   }
-  try {
-    const decodedToken = jwt.verify(
-      incomingRefreshToken,
-      process.env.REFRESH_TOKEN_SECRET
-    );
-    const user = await User.findById(decodedToken?._id);
-    console.log("user from rat:", user);
-    if (!user) {
-      throw new ApiError(401, "Invalid refresh token");
-    }
-    if (user?.refreshToken !== incomingRefreshToken) {
-      throw new ApiError(401, "Refresh token in expired or used");
-    }
 
-    const { accessToken, refreshToken } =
-      (await generateAndSaveAccessAndRefreshToken(user?._id)) || {};
-    console.log("new accessToken:", accessToken);
-    return res
-      .status(200)
-      .cookie("accessToken", accessToken, cookieOptions)
-      .cookie("refreshToken", refreshToken, cookieOptions)
-      .json(
-        new ApiResponse(
-          200,
-          { accessToken, refreshToken },
-          "Access Token refreshed"
-        )
-      );
-  } catch (error) {
-    console.log("error generating :", error);
-    throw new ApiError(401, error.message || "Invalid refresh token");
+  const decodedToken = jwt.verify(
+    incomingRefreshToken,
+    process.env.REFRESH_TOKEN_SECRET
+  );
+  
+  const user = await User.findById(decodedToken?._id);
+  console.log("user from rat:", user);
+  if (!user) {
+    throw new ApiError(401, "Invalid refresh token");
   }
+  if (user?.refreshToken !== incomingRefreshToken) {
+    throw new ApiError(401, "Refresh token in expired or used");
+  }
+
+  const { accessToken, refreshToken } =
+    (await generateAndSaveAccessAndRefreshToken(user?._id)) || {};
+  console.log("new accessToken:", accessToken);
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, cookieOptions)
+    .cookie("refreshToken", refreshToken, cookieOptions)
+    .json(
+      new ApiResponse(
+        200,
+        { accessToken, refreshToken },
+        "Access Token refreshed"
+      )
+    );
+
 });
 
 // change current password
@@ -390,6 +388,11 @@ const resetPassword = asyncHandler(async (req, res) => {
 const getCurrentUser = asyncHandler((req, res) =>
   res.status(200).json(new ApiResponse(200, req?.user, "User found"))
 );
+
+const getAllUsers = asyncHandler(async (req, res) => {
+  const users = await User.find({}).select("-password");
+  return res.status(200).json(new ApiResponse(200, users, "All users found"));
+});
 
 // update account  details
 const updateAccountDetails = asyncHandler(async (req, res) => {
@@ -572,7 +575,6 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
 });
 
 // get user watch history
-
 const getWatchHistory = asyncHandler(async (req, res) => {
   // you need to create a mongoDB Object Id to find by user id because agreegation works directly with mongoDB not used mongoose
   const { q } = req.query || {};
@@ -585,9 +587,11 @@ const getWatchHistory = asyncHandler(async (req, res) => {
       { description: { $regex: decodedQuery, $options: "i" } },
     ];
   }
-  const user = await User.aggregate([
+  let result = await User.aggregate([
     {
-      $match: { _id: userId }, // Match the user
+      $match: {
+        _id: userId,
+      },
     },
     {
       $unwind: "$watchHistory", // Flatten watchHistory array
@@ -641,12 +645,12 @@ const getWatchHistory = asyncHandler(async (req, res) => {
         ],
       },
     },
+    // Add video details to watchHistory
     {
       $set: {
-        "watchHistory.video": { $arrayElemAt: ["$videoDetails", 0] }, // Add video details to watchHistory
+        "watchHistory.video": { $arrayElemAt: ["$videoDetails", 0] },
       },
     },
-    
     {
       $group: {
         _id: {
@@ -659,13 +663,20 @@ const getWatchHistory = asyncHandler(async (req, res) => {
       },
     },
     {
-      $sort: { _id: -1 }, // Sort groups by date in descending order
+      $sort: { _id: -1 },
     },
   ]);
+  console.log("user:", JSON.stringify(result, null, 2));
+  const isSearchMatched = result?.some((item) =>
+    item?.videos?.some((v) => v?.video?._id)
+  );
+  console.log("isSearchMatched:", isSearchMatched);
+  if (!isSearchMatched) {
+    result = [];
+  }
 
-  // console.log("user:", JSON.stringify(user, null, 2));
   // cache the response
-  const response = new ApiResponse(200, user, "Watch history found");
+  const response = new ApiResponse(200, result, "Watch history found");
   /* redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response)); */
   return res.status(200).json(response);
 });
@@ -712,14 +723,34 @@ const toggleHistoryPauseState = asyncHandler(async (req, res) => {
   );
 });
 
-const getAllUsers = asyncHandler(async (req, res) => {
-  const users = await User.find({}).select("-password");
-  return res.status(200).json(new ApiResponse(200, users, "All users found"));
+// Delete video from watch history
+const deleteVideoFromWatchHistory = asyncHandler(async (req, res) => {
+  const { videoId } = req.params || {};
+  const user = await User.findByIdAndUpdate(
+    req?.user?._id,
+    {
+      $pull: {
+        watchHistory: {
+          videoId,
+        },
+      },
+    },
+    {
+      new: true,
+    }
+  );
+  if (!user) {
+    throw new ApiError(500, "Error occurred while deleting video from history");
+  }
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Video deleted from watch history"));
 });
 
 export {
   changeCurrentPassword,
   clearWatchHistory,
+  deleteVideoFromWatchHistory,
   forgotPassword,
   getAllUsers,
   getCurrentUser,

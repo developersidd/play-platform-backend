@@ -52,6 +52,7 @@ app.use(express.urlencoded({ limit: "20kb" }));
 app.use(express.static("public"));
 app.use(cors({ credentials: true, origin: process.env.CORS_ORIGIN }));
 app.use(cookieParser());
+
 app.use(requestIp.mw());
 // routes
 app.use("/api/v1/users", userRouter);
