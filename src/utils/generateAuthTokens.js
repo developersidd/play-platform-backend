@@ -1,8 +1,7 @@
-import LoginHistory from "../models/loginHistory.model.js";
 import User from "../models/user.model.js";
 import ApiError from "./ApiError.js";
 
-const generateAndSaveAccessAndRefreshToken = async (userId) => {
+const generateAuthTokens = async (userId) => {
   try {
     // find user by id
     const user = await User.findById(userId);
@@ -12,18 +11,10 @@ const generateAndSaveAccessAndRefreshToken = async (userId) => {
     const refreshToken = user.generateRefreshToken();
     if (!accessToken || !refreshToken)
       throw new ApiError(500, "Something went wrong while generating tokens");
-    // save refresh token to user database
-    user.refreshToken = refreshToken;
-    await LoginHistory.findByIdAndUpdate(user?._id, {
-      $set: { refreshToken },
-    });
-    await user.save({
-      validateBeforeSave: false,
-    });
     return { accessToken, refreshToken };
   } catch (error) {
     throw new ApiError(error?.statusCode || 500, error.message);
   }
 };
 
-export default generateAndSaveAccessAndRefreshToken;
+export default generateAuthTokens;

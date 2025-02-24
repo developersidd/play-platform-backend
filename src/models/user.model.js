@@ -96,7 +96,11 @@ const userSchema = new mongoose.Schema(
     verificationDigits: {
       type: String,
     },
-    
+    role: {
+      type: String,
+      enum: ["USER", "ADMIN"],
+      default: "USER",
+    },
     resetToken: {
       type: String,
     },
@@ -131,6 +135,7 @@ userSchema.methods.generateAccessToken = function () {
     {
       _id: this._id,
       email: this.email,
+      role: this.role,
       fullName: this.fullName,
       username: this.username,
     },

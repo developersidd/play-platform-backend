@@ -1,6 +1,6 @@
 // Dependencies
 import dotenv from "dotenv";
-import app from "./app.js";
+import {app, server} from "./app.js";
 import connectDB from "./db/index.js";
 import swaggerDocs from "./utils/swagger.js";
 // configure environment variables
@@ -20,7 +20,7 @@ connectDB()
     // Swagger
     swaggerDocs(app, PORT);
     // start server
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
   })

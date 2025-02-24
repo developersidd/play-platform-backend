@@ -6,11 +6,9 @@ import asyncHandler from "../utils/asyncHandler.js";
 
 const verifyJWT = asyncHandler(async (req, _, next) => {
   try {
-    console.log("req?.cookies:", req?.cookies)
     const accessToken =
-    req?.cookies?.accessToken ||
-    req.header("Authorization")?.replace("Bearer ", "");
-    console.log("accessToken:", accessToken)
+      req?.cookies?.accessToken ||
+      req.header("Authorization")?.replace("Bearer ", "");
     if (!accessToken) {
       throw new ApiError(401, "Unauthorized access");
     }
@@ -25,12 +23,15 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
     const loginHistory = await LoginHistory.findOne({
       $and: [{ user: user?._id }, { userAgent }],
     });
-    
+
     if (!user) {
       throw new ApiError(401, "Invalid Access Token");
     }
-    
-    req.user = { ...user?._doc, loginHistoryId: loginHistory?._id };
+    req.user = {
+      ...user?._doc,
+      accessToken,
+      loginHistoryId: loginHistory?._id,
+    };
     // console.log("req.user from auth:", req.user);
     next();
   } catch (error) {

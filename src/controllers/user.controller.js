@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 
 import LoginHistory from "../models/loginHistory.model.js";
+import Notification from "../models/notification.model.js";
 import User from "../models/user.model.js";
 import sendMail from "../nodemailer.js";
 import ApiError from "../utils/ApiError.js";
@@ -10,7 +11,7 @@ import {
   deleteFromCloudinary,
   uploadOnCloudinary,
 } from "../utils/cloudinary.js";
-import generateAndSaveAccessAndRefreshToken from "../utils/generateAndSaveAccessAndRefreshToken.js";
+import generateAuthTokens from "../utils/generateAuthTokens.js";
 import { createMongoId } from "../utils/mongodb.util.js";
 import { createHistory } from "./loginHistory.controller.js";
 
@@ -65,6 +66,7 @@ const registerUser = asyncHandler(async (req, res) => {
     ]
   }
     */
+  console.log("req.files:", req.files);
   const avatarLocalPath = (req?.files?.avatar ?? [])[0]?.path;
   const coverImageLocalPath = (req?.files?.coverImage ?? [])[0]?.path;
   if (!avatarLocalPath) {
@@ -74,6 +76,7 @@ const registerUser = asyncHandler(async (req, res) => {
 
   // upload images on cloudinary
   const avatar = await uploadOnCloudinary(avatarLocalPath);
+
   const coverImage =
     coverImageLocalPath && (await uploadOnCloudinary(coverImageLocalPath));
   if (!avatar?.url) {
@@ -112,9 +115,20 @@ const registerUser = asyncHandler(async (req, res) => {
   if (!createdUser) {
     throw new ApiError(500, "Something went wrong while registering user");
   }
+  // Create admin notification
+  const notification = await Notification.create({
+    sender: user?._id,
+    type: "ADMIN",
+    message: `${fullName} registered on Youtube Clone`,
+    image: avatar?.url,
+    link: `/channels/${username}`,
+  });
+
+  // Emit real-time notification
+  const io = req.app.get("io");
+  io.to("admin-room").emit("registration", notification);
 
   // send response to client
-
   return res
     .status(201)
     .json(new ApiResponse(200, createdUser, "User registered successfully"));
@@ -151,8 +165,7 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(401, "Invalid user credentials");
   }
   // create access and refresh token
-  const { accessToken, refreshToken } =
-    await generateAndSaveAccessAndRefreshToken(user?._id);
+  const { accessToken, refreshToken } = await generateAuthTokens(user?._id);
 
   user.refreshToken = refreshToken;
   await user.save({
@@ -265,7 +278,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     incomingRefreshToken,
     process.env.REFRESH_TOKEN_SECRET
   );
-  
+
   const user = await User.findById(decodedToken?._id);
   console.log("user from rat:", user);
   if (!user) {
@@ -276,7 +289,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
 
   const { accessToken, refreshToken } =
-    (await generateAndSaveAccessAndRefreshToken(user?._id)) || {};
+    (await generateAuthTokens(user?._id)) || {};
   console.log("new accessToken:", accessToken);
   return res
     .status(200)
@@ -289,7 +302,6 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
         "Access Token refreshed"
       )
     );
-
 });
 
 // change current password
