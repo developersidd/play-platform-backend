@@ -1,8 +1,10 @@
 import Video from "../models/video.model.js";
 
+//  generate cache key
 const generateCacheKey = (resource, ...props) =>
   `app:${resource}:${JSON.stringify(...props)}`;
 
+// check cache 
 const checkCache = async (req, cacheKey) => {
   const { redisClient } = req.app.locals || {};
   const cachedData = await redisClient.get(cacheKey);
@@ -19,10 +21,13 @@ const setCache = async (req, data, cacheKey, duration = 3600) => {
   await redisClient.setEx(cacheKey, duration, JSON.stringify(data));
 };
 
+// revalidate cache
 const revalidateCache = async (req, cacheKey) => {
   const { redisClient } = req.app.locals || {};
   await redisClient.del(cacheKey);
 };
+
+// revalidate related caches
 const revalidateRelatedCaches = async (req, prefixKey) => {
   const { redisClient } = req.app.locals || {};
   // Delete all related cache keys
@@ -34,7 +39,8 @@ const revalidateRelatedCaches = async (req, prefixKey) => {
     await redisClient.del(...keys); // Delete all related caches
   }
 };
-// Helper function to check and add views in Redis
+
+// Check and add views in Redis
 async function addViewIfNotExists(req, videoId, userIp) {
   const redisKey = `video:${videoId}:viewedBy:${userIp}`;
   const videoCacheKey = generateCacheKey("video", videoId);

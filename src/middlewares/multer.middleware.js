@@ -29,6 +29,8 @@ const upload = multer({
     if (
       file.mimetype === "image/png" ||
       file.mimetype === "image/jpeg" ||
+      file.mimetype === "image/jpg" ||
+      file.mimetype === "image/webp" ||
       file.mimetype === "video/mp4" ||
       file.mimetype === "video/mp3"
     ) {

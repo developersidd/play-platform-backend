@@ -126,7 +126,10 @@ const registerUser = asyncHandler(async (req, res) => {
 
   // Emit real-time notification
   const io = req.app.get("io");
-  io.to("admin-room").emit("registration", notification);
+  // make sure you take the callback function as the last argument
+  io.to("admin-room").emit("registration", notification, (message) => {
+    console.log("message:", message);
+  });
 
   // send response to client
   return res

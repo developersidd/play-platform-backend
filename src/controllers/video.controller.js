@@ -1,6 +1,8 @@
 import { isValidObjectId } from "mongoose";
 import { addToWatchHistory } from "../helpers/video.helper.js";
 import Like from "../models/like.model.js";
+import NotificationModel from "../models/notification.model.js";
+import Subscription from "../models/subscription.model.js";
 import User from "../models/user.model.js";
 import Video from "../models/video.model.js";
 import ApiError from "../utils/ApiError.js";
@@ -54,11 +56,12 @@ const getAllVideos = asyncHandler(async (req, res) => {
   } else {
     sortQuery.createdAt = -1;
   }
+
   const cacheKey = generateCacheKey("all-videos", req.query);
   // Check cache
   // await revalidateRelatedCaches(req, "all-videos");
   const cachedRes = await checkCache(req, cacheKey);
-  
+
   if (cachedRes) {
     return res.status(200).json(cachedRes);
   }
@@ -305,10 +308,8 @@ const updateAllVideo = asyncHandler(async (req, res) => {
 
 //  Publish video
 const publishVideo = asyncHandler(async (req, res) => {
+  const { _id, avatar, username } = req.user || {};
   const { title, description, tags } = req.body;
-  console.log("req.body:", req.body);
-  console.log(".file:", req.file);
-  console.log(".files:", req.files);
   const videoLocalPath = (req.files?.videoFile ?? [])[0]?.path;
   const thumbnailLocalPath = (req.files?.thumbnail ?? [])[0]?.path;
   if (!videoLocalPath || !thumbnailLocalPath) {
@@ -318,6 +319,7 @@ const publishVideo = asyncHandler(async (req, res) => {
   if ([title, description].some((value) => value?.trim() === "")) {
     throw new ApiError(400, "Please provide All required fields");
   }
+
   //  upload video and thumbnail on cloudinary
   const videoFile = await uploadOnCloudinary(videoLocalPath);
   const thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
@@ -345,8 +347,44 @@ const publishVideo = asyncHandler(async (req, res) => {
     duration,
     owner: req.user._id,
   });
+  console.log("created video:", video);
+  // send notification to the subscribers
+  const io = req.app.get("io");
+
+  // get all subscribers of the channel
+  const mongoChannelId = createMongoId(_id);
+  const subscribers = await Subscription.find({
+    channel: mongoChannelId,
+  }).ne("subscriber", _id);
+
+  // Create notification objects for all subscribers first
+  const notificationObjects = subscribers.map(({ subscriber }) => ({
+    sender: { _id, username, avatar },
+    recipient: subscriber,
+    type: "USER",
+    message: `uploaded a new video: ${title}`,
+    link: `/videos/${video?._id}`,
+    image: thumbnail?.secure_url,
+  }));
+
+  // create notifications for all subscribers
+  await NotificationModel.bulkWrite(
+    notificationObjects.map((obj) => ({
+      insertOne: { document: obj },
+    }))
+  );
+
+  // Emit notifications to all subscribers
+  notificationObjects.forEach((notification) => {
+    // by default 'to' uses broadcast to emit to all connected clients except the sender
+    io.to(`user-${notification.recipient}`).emit(
+      "new-notification",
+      notification
+    );
+  });
   // revalidate all video cache
   await revalidateRelatedCaches(req, "all-videos");
+
   return res
     .status(201)
     .json(new ApiResponse(201, video, "Video published successfully"));
@@ -396,10 +434,21 @@ const updateVideoPublishStatus = asyncHandler(async (req, res) => {
 
 const getRelatedVideos = asyncHandler(async (req, res) => {
   const videoId = req.params.id;
-  console.log("videoId:", videoId);
+  const { page = 1, limit = 10,
+    sortBy = "createdAt",
+    sortType = "desc"
+   } = req.query;
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video Id");
   }
+  // sort query
+  const sortQuery = {};
+  if (sortBy) {
+    sortQuery[sortBy] = sortType === "desc" ? -1 : 1;
+  } else {
+    sortQuery.createdAt = -1;
+  }
+  
   const video = await Video.findById(videoId);
   if (!video) {
     throw new ApiError(404, "Video not found");
@@ -411,17 +460,69 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
   if (cachedRes) {
     return res.status(200).json(cachedRes);
   }
-  const relatedVideos = await Video.find({
-    _id: { $ne: videoId },
-    tags: { $in: video.tags },
-  }).populate({
-    path: "owner",
-    model: "User",
-    select: "_id username fullName email avatar",
-  });
-  // Cache the response
-  const response = new ApiResponse(200, relatedVideos, "Related videos found");
-  // await setCache(req, response, cacheKey);
+
+  // add aggregation pagination like getAllVideos
+  const aggregateQuery = Video.aggregate([
+    {
+      $match: {
+        _id: { $ne: createMongoId(videoId) },
+        $or: [
+          { tags: { $in: video.tags } },
+          { title: { $regex: video.title, $options: "i" } },
+        ],
+      },
+    },
+    {
+      $sort: sortQuery,
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "owner",
+        pipeline: [
+          {
+            $project: {
+              _id: 1,
+              username: 1,
+              fullName: 1,
+              email: 1,
+              avatar: 1,
+              coverImage: 1,
+            },
+          },
+        ],
+      },
+    },
+    {
+      $set: {
+        owner: {
+          $first: "$owner",
+        },
+      },
+    },
+  ]);
+
+  const options = {
+    page: parseInt(page, 10),
+    limit: parseInt(limit, 10),
+  };
+  const result = await Video.aggregatePaginate(aggregateQuery, options);
+  // Create the response object
+  const response = new ApiResponse(
+    200,
+    {
+      videos: result.docs,
+      totalVideos: result.totalDocs,
+      totalPages: result.totalPages,
+      currentPage: result.page,
+      hasNextPage: result.hasNextPage,
+      hasPrevPage: result.hasPrevPage,
+    },
+    "Related Videos found"
+  );
+
   return res.status(200).json(response);
 });
 

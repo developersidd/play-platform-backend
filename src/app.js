@@ -8,6 +8,7 @@ import { createClient } from "redis";
 import requestIp from "request-ip";
 import { Server } from "socket.io";
 // import Routes
+import { instrument } from "@socket.io/admin-ui";
 import { isValidObjectId } from "mongoose";
 import commentRouter from "./routes/comment.routes.js";
 import dislikeRouter from "./routes/dislike.routes.js";
@@ -53,20 +54,25 @@ redisClient.on("error", (err) => {
 // Socket.io setup
 const io = new Server(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN,
+    origin: ["https://admin.socket.io", process.env.CORS_ORIGIN],
     methods: ["GET", "POST"],
+    credentials: true,
   },
+});
+
+// Admin UI for Socket.io
+instrument(io, {
+  auth: false,
+  // mode: "development",
 });
 
 // Middleware to authenticate Socket.io connections
 io.use((socket, next) => {
   const { token } = socket.handshake.auth || {};
-  console.log(" token:", token);
   if (!token) return next(new Error("Authentication error"));
 
   // Verify JWT (example using jsonwebtoken)
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-    console.log(" decoded:", decoded);
     if (err) return next(new Error("Unauthorized"));
     socket.user = decoded;
     next();
@@ -75,10 +81,19 @@ io.use((socket, next) => {
 
 // Handle connections
 io.on("connection", (socket) => {
+  // Every browser who visits the site will be connected to the socket.io server
+
+  // By default every single user in socket io has their own room
+
+  // Every socket is in a room that is the same as their socket id
   const { role = "", _id } = socket.user || {};
   if (isValidObjectId(_id)) {
     socket.join(`user-${_id}`);
     console.log(`User ${_id} connected`);
+    // io.to(`user-${_id}`).emit("new-notification", {
+    //  message: "Welcome to the server",
+    //  type: "welcome",
+    // });
 
     if (role.trim() === "ADMIN") {
       socket.join("admin-room");
@@ -86,6 +101,8 @@ io.on("connection", (socket) => {
       // socket.emit("registration", { test: "Admin connection successful" });
     }
   }
+  // When you disconnect, all of the messages that you send and once you reconnect, you will receive all of the messages that you missed. if you want to avoid this, you can use .volatile.emit() to forget the messages that you missed while you were disconnected.
+
   socket.on("disconnect", (reason) => {
     // console.log(" reason:", reason);
     console.log("Disconnected:", socket.id);
@@ -94,6 +111,32 @@ io.on("connection", (socket) => {
 
 // Attach io instance to Express app
 app.set("io", io);
+
+/// / Morgan HTTP logging
+// app.use(
+//  morgan("combined", {
+//    stream: {
+//      write: (message) => logger.http(message.trim()),
+//    },
+//  })
+// );
+//
+/// * // Express-Winston for request/response logging
+// app.use(
+//  expressWinston.logger({
+//    winstonInstance: logger,
+//    meta: true,
+//    msg: "HTTP {{req.method}} {{req.url}}",
+//    statusLevels: {
+//      success: "info",
+//      warn: "warn",
+//      error: "error",
+//    },
+//    expressFormat: true,
+//    colorize: true,
+//  })
+// );
+//* /
 
 // Middlewares
 app.use(express.json({ limit: "20kb" }));

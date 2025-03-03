@@ -13,8 +13,10 @@ const getNotifications = asyncHandler(async (req, res) => {
   //    }
   const notifications = await NotificationModel.find({
     $or: [{ recipient: _id?.toString() }, { type: role }],
-  }).sort({ createdAt: -1 });
-  console.log(" notifications:", notifications);
+  })
+    .sort({ createdAt: -1 })
+    .populate("sender", "username avatar");
+  // console.log(" notifications:", notifications);
   const response = new ApiResponse(
     200,
     notifications,

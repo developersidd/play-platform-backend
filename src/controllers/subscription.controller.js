@@ -43,7 +43,6 @@ const toggleSubscription = asyncHandler(async (req, res) => {
 // controller to return subscriber list of a channel
 const getUserChannelSubscribers = asyncHandler(async (req, res) => {
   const { channelId } = req.params;
-  const { redisClient } = req.app.locals || {};
   const { page, limit, expand = false } = req.query || {};
   // delete the cache if expand is true
 
@@ -51,27 +50,32 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid channel id");
   }
 
+  const cacheKey = generateCacheKey("subscribers-list", req.query);
+  // Check cache
+
   if (!expand) {
     // check if the response is cached
-    const cachedResponse = await redisClient.get("subscribers-list");
-    if (cachedResponse) {
-      console.log("cachedResponse not expand");
-      return res.status(200).json(JSON.parse(cachedResponse));
+    const cachedRes = await checkCache(req, cacheKey);
+
+    if (cachedRes) {
+      console.log("cachedRes not expand");
+      return res.status(200).json(JSON.parse(cachedRes));
     }
     const subscribers = await Subscription.countDocuments({
       channel: channelId,
     });
 
     const response = new ApiResponse(200, { subscribers }, "Subscribers count");
-    redisClient.setEx("subscribers-list", 3600, JSON.stringify(response));
+    await setCache(req, response, cacheKey);
     return res.status(200).json(response);
   }
-  /* const cachedResponse = await redisClient.get("subscribers-list?expand=true");
-  if (cachedResponse) {
-    console.log("cachedResponse expand");
-    return res.status(200).json(JSON.parse(cachedResponse));
+
+  const cachedRes = await checkCache(req, cacheKey);
+  if (cachedRes) {
+    console.log("cachedRes expand");
+    return res.status(200).json(JSON.parse(cachedRes));
   }
-  */
+
   // paginate subscribers list query
   const mongoChannelId = createMongoId(channelId);
   const channelSubscribersQuery = Subscription.aggregate([
@@ -126,11 +130,7 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
   );
   req.app.locals.redisKey = "subscribers-list?expand=true";
 
-  redisClient.setEx(
-    "subscribers-list?expand=true",
-    3600,
-    JSON.stringify(response)
-  );
+  await setCache(req, response, cacheKey);
   return res.status(200).json(response);
 });
 
