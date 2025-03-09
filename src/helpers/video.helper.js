@@ -11,7 +11,6 @@ const addToWatchHistory = async (userId, videoId) => {
       _id: userId,
       "watchHistory.videoId": videoId,
     });
-    console.log("videoExists:", videoExists)
 
     // if video exists, remove it from the watchHistory array
     if (videoExists) {

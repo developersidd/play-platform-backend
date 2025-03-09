@@ -56,10 +56,11 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
   if (!expand) {
     // check if the response is cached
     const cachedRes = await checkCache(req, cacheKey);
+    console.log(" cachedRes:", cachedRes);
 
     if (cachedRes) {
       console.log("cachedRes not expand");
-      return res.status(200).json(JSON.parse(cachedRes));
+      return res.status(200).json(cachedRes);
     }
     const subscribers = await Subscription.countDocuments({
       channel: channelId,

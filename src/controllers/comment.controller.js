@@ -4,32 +4,49 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { createMongoId } from "../utils/mongodb.util.js";
+import {
+  checkCache,
+  generateCacheKey,
+  revalidateCache,
+  setCache,
+} from "../utils/redis.util.js";
 
+// Get comments for a video
 const getVideoComments = asyncHandler(async (req, res) => {
-  // TODO: get all comments for a video
   const { videoId } = req.params;
-  console.log("videoId:", videoId);
-  const { page = 1, limit = 10, sortBy = "newest" } = req.query;
-  console.log("sortBy:", sortBy);
-
+  const {
+    page = 1,
+    limit = 10,
+    sortBy = "createdAt",
+    sortType = "desc",
+  } = req.query;
+  const cacheKey = generateCacheKey("video-comments", videoId, req.query);
+  await revalidateCache(req, cacheKey);
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video id");
   }
 
-  const { redisClient } = req.app.locals || {};
-  const cachedData = await redisClient.get("video-comments");
-
-  if (cachedData) {
-    console.log("from cache");
-    return res.status(200).json(JSON.parse(cachedData));
-  }
+  const cachedData = await checkCache(req, cacheKey);
+  // if (cachedData) {
+  //  return res.status(200).json(cachedData);
+  // }
+  //
+  // search & sort query
   const searchQuery = { video: createMongoId(videoId) };
-  const sortQuery = {
-    createdAt: -1,
-  };
+  // sort query
+  const sortQuery = {};
+  if (sortBy) {
+    sortQuery[sortBy] = sortType === "desc" ? -1 : 1;
+  } else {
+    sortQuery.createdAt = -1;
+  }
+
   const aggregateQuery = Comment.aggregate([
     {
       $match: searchQuery,
+    },
+    {
+      $sort: sortQuery,
     },
     {
       $lookup: {
@@ -55,15 +72,13 @@ const getVideoComments = asyncHandler(async (req, res) => {
         owner: { $first: "$owner" },
       },
     },
-    {
-      $sort: sortQuery,
-    },
   ]);
   // Use aggregatePaginate for pagination
   const options = {
     page: parseInt(page, 10),
     limit: parseInt(limit, 10),
   };
+  console.log(" options.page:", options.page);
 
   const result = await Comment.aggregatePaginate(aggregateQuery, options);
   const response = new ApiResponse(
@@ -79,7 +94,7 @@ const getVideoComments = asyncHandler(async (req, res) => {
     "Comments found"
   );
   // cache the response
-  redisClient.setEx("video-comments", 3600, JSON.stringify(response));
+  await setCache(req, response, cacheKey);
   return res.status(200).json(response);
 });
 

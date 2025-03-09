@@ -6,25 +6,29 @@ import Video from "../models/video.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { createMongoId } from "../utils/mongodb.util.js";
 import {
   checkCache,
   generateCacheKey,
   revalidateCache,
+  revalidateRelatedCaches,
   setCache,
 } from "../utils/redis.util.js";
 
 // crate a new playlist
 const createPlaylist = asyncHandler(async (req, res) => {
-  const { name, description } = req.body;
-  if (!name?.trim() || !description?.trim()) {
+  // const {userId} = req.params;
+  const { name, description, type = "videoPlaylist", videos = [] } = req.body;
+  if (!name?.trim() || videos?.length === 0) {
     throw new ApiError(400, "Name and Description are required");
   }
   const playlist = await Playlist.create({
     name,
     description,
-    owner: req.params.userId,
+    type,
+    videos,
+    owner: req.user?._id,
   });
+  await revalidateRelatedCaches(req, "user-playlist", req.user._id);
   return res
     .status(201)
     .json(new ApiResponse(201, playlist, "Playlist created"));
@@ -32,8 +36,8 @@ const createPlaylist = asyncHandler(async (req, res) => {
 
 // get all playlists of a user
 const getUserPlaylists = asyncHandler(async (req, res) => {
-  const { username } = req.params;
-  console.log("username:", username);
+  const { username = "" } = req.params || {};
+  const { type = "videoPlaylist" } = req.query || {};
   if (!username) {
     throw new ApiError(400, "Invalid User Name");
   }
@@ -41,9 +45,10 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
   if (!user) {
     throw new ApiError(404, "User not found");
   }
+  console.log(" user:", user);
   const result = await Playlist.aggregate([
     // Match the specific playlist
-    { $match: { owner: createMongoId(user?._id) } },
+    { $match: { owner: user?._id, type } },
 
     // Add totalVideos field with the length of the videos array
     { $addFields: { totalVideos: { $size: "$videos" } } },
@@ -89,9 +94,8 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
   // cache key
   const cacheKey = generateCacheKey("user-playlist", user._id);
   // check cache
-  await revalidateCache(req, cacheKey);
+  //await revalidateCache(req, cacheKey);
   const cachedData = await checkCache(req, cacheKey);
-  await revalidateCache(req, cacheKey);
   if (cachedData) {
     return res.status(200).json(cachedData);
   }
@@ -113,9 +117,9 @@ const getPlaylistById = asyncHandler(async (req, res) => {
   // check cache
   const cachedData = await checkCache(req, cacheKey);
   await revalidateCache(req, cacheKey);
-  /* if (cachedData) {
+  if (cachedData) {
     return res.status(200).json(cachedData);
-  } */
+  }
   const playlist = await Playlist.findById(playlistId)
     .populate({
       path: "owner",

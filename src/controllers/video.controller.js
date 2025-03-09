@@ -41,8 +41,10 @@ const getAllVideos = asyncHandler(async (req, res) => {
       { tags: { $in: q.split(" ").map((val) => val.toLowerCase()) } },
     ];
   }
+  console.log(" q:", q)
+
   // console.log("searchQuery:", JSON.stringify(searchQuery, null, 2));
-  if (username) {
+  if (username && username !== "guest") {
     const userId = await User.findOne({ username }).select("_id");
     if (!userId) {
       throw new ApiError(404, "User not found");
@@ -122,6 +124,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
     },
     "Videos found"
   );
+      console.log(" result.docs:", result.docs)
   // Cache the response
   await setCache(req, response, cacheKey);
   return res.status(200).json(response);
@@ -432,6 +435,7 @@ const updateVideoPublishStatus = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, video, "Video publish status updated"));
 });
 
+// get related videos
 const getRelatedVideos = asyncHandler(async (req, res) => {
   const videoId = req.params.id;
   const { page = 1, limit = 10,
@@ -453,8 +457,8 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
   if (!video) {
     throw new ApiError(404, "Video not found");
   }
-  const cacheKey = generateCacheKey("related-videos", videoId);
-  await revalidateCache(req, cacheKey);
+  const cacheKey = generateCacheKey("related-videos", videoId, req.query);
+  // await revalidateCache(req, cacheKey);
   // Check cache
   const cachedRes = await checkCache(req, cacheKey);
   if (cachedRes) {
@@ -599,5 +603,6 @@ export {
   updateAllVideo,
   updateVideoById,
   updateVideoCount,
-  updateVideoPublishStatus,
+  updateVideoPublishStatus
 };
+

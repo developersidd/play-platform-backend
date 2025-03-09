@@ -11,7 +11,6 @@ const playlistSchema = new Schema(
     },
     description: {
       type: String,
-      required: [true, "Description is Required"],
       max: [500, "Description cannot be more than 500 characters"],
     },
     owner: {
@@ -25,8 +24,19 @@ const playlistSchema = new Schema(
         ref: "Video",
       },
     ],
+    type: {
+      type: String,
+      enum: ["watchLater", "videoPlaylist"],
+      default: "videoPlaylist",
+    },
+    isPublic: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
+playlistSchema.index({ name: 1, owner: 1 }, { unique: true });
+
 const Playlist = model("Playlist", playlistSchema);
 export default Playlist;
