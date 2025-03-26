@@ -26,10 +26,10 @@ const playlistSchema = new Schema(
     ],
     type: {
       type: String,
-      enum: ["watchLater", "videoPlaylist"],
-      default: "videoPlaylist",
+      enum: ["collection", "playlist"],
+      default: "playlist",
     },
-    isPublic: {
+    isPrivate: {
       type: Boolean,
       default: false,
     },

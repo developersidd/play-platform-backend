@@ -38,10 +38,17 @@ const getAllVideos = asyncHandler(async (req, res) => {
     searchQuery.$or = [
       { title: { $regex: q, $options: "i" } },
       { description: { $regex: q, $options: "i" } },
-      { tags: { $in: q.split(" ").map((val) => val.toLowerCase()) } },
+      {
+        tags: {
+          $in: q
+            .split(" ")
+            .map((val) => val.toLowerCase())
+            .filter((val) => val),
+        },
+      },
     ];
   }
-  console.log(" q:", q)
+  console.log(" q:", q);
 
   // console.log("searchQuery:", JSON.stringify(searchQuery, null, 2));
   if (username && username !== "guest") {
@@ -49,7 +56,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
     if (!userId) {
       throw new ApiError(404, "User not found");
     }
-    searchQuery.owner = createMongoId(userId);
+    searchQuery.owner = createMongoId(userId?._id);
   }
   // sort query
   const sortQuery = {};
@@ -61,12 +68,14 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
   const cacheKey = generateCacheKey("all-videos", req.query);
   // Check cache
-  // await revalidateRelatedCaches(req, "all-videos");
+   await revalidateRelatedCaches(req, "all-videos");
   const cachedRes = await checkCache(req, cacheKey);
+  // console.log(" cachedRes:", JSON.stringify(cachedRes, null, 2));
 
   if (cachedRes) {
     return res.status(200).json(cachedRes);
   }
+
   // Create the aggregation pipeline
   const aggregateQuery = Video.aggregate([
     {
@@ -124,7 +133,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
     },
     "Videos found"
   );
-      console.log(" result.docs:", result.docs)
+  console.log(" result.docs:", result.docs);
   // Cache the response
   await setCache(req, response, cacheKey);
   return res.status(200).json(response);
@@ -438,10 +447,12 @@ const updateVideoPublishStatus = asyncHandler(async (req, res) => {
 // get related videos
 const getRelatedVideos = asyncHandler(async (req, res) => {
   const videoId = req.params.id;
-  const { page = 1, limit = 10,
+  const {
+    page = 1,
+    limit = 10,
     sortBy = "createdAt",
-    sortType = "desc"
-   } = req.query;
+    sortType = "desc",
+  } = req.query;
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video Id");
   }
@@ -452,7 +463,7 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
   } else {
     sortQuery.createdAt = -1;
   }
-  
+
   const video = await Video.findById(videoId);
   if (!video) {
     throw new ApiError(404, "Video not found");
@@ -603,6 +614,5 @@ export {
   updateAllVideo,
   updateVideoById,
   updateVideoCount,
-  updateVideoPublishStatus
+  updateVideoPublishStatus,
 };
-

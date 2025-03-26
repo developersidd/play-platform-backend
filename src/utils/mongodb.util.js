@@ -5,4 +5,3 @@ export const createMongoId = (id) => {
     return new mongo.ObjectId(id);
   }
 };
-

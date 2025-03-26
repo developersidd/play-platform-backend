@@ -596,7 +596,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
   const userId = createMongoId(req?.user?._id);
   const searchQuery = {};
   const decodedQuery = decodeURIComponent(q);
-  if (decodedQuery !== "undefined" && decodedQuery) {
+  if (decodedQuery?.length > 0) {
     searchQuery.$or = [
       { title: { $regex: decodedQuery, $options: "i" } },
       { description: { $regex: decodedQuery, $options: "i" } },
@@ -611,6 +611,33 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     {
       $unwind: "$watchHistory", // Flatten watchHistory array
     },
+    {
+      $lookup: {
+        from: "watchlaters",
+        let: {
+          videoId: "$watchHistory.videoId",
+          userId,
+        },
+        as: "watchLaterCheck",
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  {
+                    $in: ["$$videoId", "$videos.video"],
+                  },
+                  {
+                    $eq: ["$$userId", "$user"],
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    },
+
     {
       $lookup: {
         from: "videos",
@@ -667,6 +694,13 @@ const getWatchHistory = asyncHandler(async (req, res) => {
       },
     },
     {
+      $addFields: {
+        "watchHistory.video.isInWatchLater": {
+          $gt: [{ $size: "$watchLaterCheck" }, 0],
+        },
+      },
+    },
+    {
       $group: {
         _id: {
           $dateToString: {
@@ -681,13 +715,13 @@ const getWatchHistory = asyncHandler(async (req, res) => {
       $sort: { _id: -1 },
     },
   ]);
-  console.log("user:", JSON.stringify(result, null, 2));
-  const isSearchMatched = result?.some((item) =>
-    item?.videos?.some((v) => v?.video?._id)
-  );
-  console.log("isSearchMatched:", isSearchMatched);
-  if (!isSearchMatched) {
-    result = [];
+  if (q) {
+    const isSearchMatched = result?.some((item) =>
+      item?.videos?.some((v) => v?.video?._id)
+    );
+    if (!isSearchMatched) {
+      result = [];
+    }
   }
 
   // cache the response

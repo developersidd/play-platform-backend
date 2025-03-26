@@ -21,7 +21,7 @@ import subscriptionRouter from "./routes/subscription.routes.js";
 import tweetRouter from "./routes/tweet.routes.js";
 import userRouter from "./routes/user.routes.js";
 import videoRouter from "./routes/video.routes.js";
-
+import watchLaterRouter from "./routes/watchLater.routes.js";
 import ApiError from "./utils/ApiError.js";
 // App Initialization
 const app = express();
@@ -112,31 +112,6 @@ io.on("connection", (socket) => {
 // Attach io instance to Express app
 app.set("io", io);
 
-/// / Morgan HTTP logging
-// app.use(
-//  morgan("combined", {
-//    stream: {
-//      write: (message) => logger.http(message.trim()),
-//    },
-//  })
-// );
-//
-/// * // Express-Winston for request/response logging
-// app.use(
-//  expressWinston.logger({
-//    winstonInstance: logger,
-//    meta: true,
-//    msg: "HTTP {{req.method}} {{req.url}}",
-//    statusLevels: {
-//      success: "info",
-//      warn: "warn",
-//      error: "error",
-//    },
-//    expressFormat: true,
-//    colorize: true,
-//  })
-// );
-//* /
 
 // Middlewares
 app.use(express.json({ limit: "20kb" }));
@@ -153,12 +128,12 @@ app.use("/api/v1/users", userRouter);
 app.use("/api/v1/videos", videoRouter);
 app.use("/api/v1/likes", likeRouter);
 app.use("/api/v1/dislikes", dislikeRouter);
-app.use("/api/v1/playlist", playlistRouter);
+app.use("/api/v1/playlists", playlistRouter);
 app.use("/api/v1/tweets", tweetRouter);
 app.use("/api/v1/comments", commentRouter);
 app.use("/api/v1/subscriptions", subscriptionRouter);
 app.use("/api/v1/notifications", notificationRouter);
-
+app.use("/api/v1/watch-later", watchLaterRouter)
 app.use("/api/v1/login-history", loginHistoryRouter);
 app.use("/healthcheck", healthcheckRouter);
 // 404 Error Handler
@@ -179,3 +154,4 @@ app.use((err, req, res, next) => {
 });
 
 export { app, server };
+
