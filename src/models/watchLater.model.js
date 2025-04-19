@@ -7,20 +7,21 @@ const videoEntrySchema = new Schema(
       ref: "Video",
       required: [true, "Video reference is required"],
     },
-    
+    position: {
+      type: Number,
+      required: [true, "Position is required"],
+      default: 0,
+    },
     addedAt: {
       type: Date,
       default: Date.now,
     },
-  },
-  {
-    _id: false,
   }
 );
 
 const watchLaterSchema = new Schema(
   {
-    user: {
+    owner: {
       type: Types.ObjectId,
       ref: "User",
       required: [true, "User reference is required"],
