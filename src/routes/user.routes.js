@@ -8,6 +8,7 @@ import {
   getAllUsers,
   getCurrentUser,
   getUserChannelProfile,
+  getUserChannelStats,
   getWatchHistory,
   loginUser,
   logoutUser,
@@ -64,8 +65,13 @@ router
   .route("/history/remove/:videoId")
   .delete(verifyJWT, deleteVideoFromWatchHistory);
 
+  
+  // get user channel stats
+  router.route("/profile/stats").get(verifyJWT, getUserChannelStats);
+
 // get user channel profile
 router.route("/c/:username").get(getUserChannelProfile);
+
 // change password route
 router.route("/change-password").post(verifyJWT, changeCurrentPassword);
 // get current user

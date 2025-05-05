@@ -13,6 +13,7 @@ import {
 } from "../utils/cloudinary.js";
 import generateAuthTokens from "../utils/generateAuthTokens.js";
 import { createMongoId } from "../utils/mongodb.util.js";
+import { checkCache, generateCacheKey, setCache } from "../utils/redis.util.js";
 import { createHistory } from "./loginHistory.controller.js";
 
 const cookieOptions = {
@@ -514,11 +515,10 @@ const updateCoverImage = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "User cover Image updated successfully"));
 });
 
+// get user channel profile
 const getUserChannelProfile = asyncHandler(async (req, res) => {
   const { username } = req.params || {};
   const loggedInUserId = createMongoId(req?.query?.loggedInUserId);
-  console.log("loggedInUserId:", loggedInUserId);
-  console.log("username:", username);
   if (!username?.trim()) {
     throw new ApiError(400, "Please provide username");
   }
@@ -586,6 +586,97 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
   const response = new ApiResponse(200, channel[0], "Channel profile found");
   // console.log("channel[0]:", channel[0])
   // redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  return res.status(200).json(response);
+});
+
+// get user profile stats
+const getUserChannelStats = asyncHandler(async (req, res) => {
+  const userId = createMongoId(req?.user?._id);
+  console.log(" userId:", userId)
+  const cacheKey = generateCacheKey("user-profile-stats", userId);
+  const cachedResponse = await checkCache(req, cacheKey);
+  // if (cachedResponse) {
+  //  console.log("Cache hit for user profile stats");
+  //  return res.status(200).json(cachedResponse);
+  // }
+  const channelStats = await User.aggregate([
+    {
+      $match: {
+        _id: userId,
+      },
+    },
+    // calculate subscribers
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "_id",
+        foreignField: "owner",
+        as: "videos",
+      },
+    },
+    // calculate likes
+    {
+      $lookup: {
+        from: "likes",
+        localField: "videos._id",
+        foreignField: "video",
+        as: "likes",
+      },
+    },
+    // calculate dislikes
+    {
+      $lookup: {
+        from: "dislikes",
+        localField: "videos._id",
+        foreignField: "video",
+        as: "dislikes",
+      },
+    },
+    {
+      $addFields: {
+        subscribersCount: { $size: "$subscribers" },
+        videosCount: {
+          $size: "$videos",
+        },
+        viewsCount: {
+          $sum: "$videos.views",
+        },
+        likesCount: { $size: "$likes" },
+        dislikesCount: { $size: "$dislikes" },
+      },
+    },
+    {
+      $project: {
+        videosCount: 1,
+        subscribersCount: 1,
+        viewsCount: 1,
+        likesCount: 1,
+        dislikesCount: 1,
+      },
+    },
+  ]);
+  console.log(" channelStats:", channelStats)
+
+  if (!channelStats?.length) {
+    throw new ApiError(404, "Channel does not exist");
+  }
+
+  // cache the response
+  const response = new ApiResponse(
+    200,
+    channelStats[0],
+    "User profile stats found"
+  );
+
+  await setCache(req, response, cacheKey);
   return res.status(200).json(response);
 });
 
@@ -804,6 +895,7 @@ export {
   getAllUsers,
   getCurrentUser,
   getUserChannelProfile,
+  getUserChannelStats,
   getWatchHistory,
   loginUser,
   logoutUser,

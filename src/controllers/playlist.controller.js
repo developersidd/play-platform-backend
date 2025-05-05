@@ -1,4 +1,5 @@
 import { isValidObjectId } from "mongoose";
+import verifyJWT from "../middlewares/auth.middleware.js";
 import Playlist from "../models/playlist.model.js";
 import Subscription from "../models/subscription.model.js";
 import User from "../models/user.model.js";
@@ -14,6 +15,7 @@ import {
   revalidateRelatedCaches,
   setCache,
 } from "../utils/redis.util.js";
+import { getUserWatchLaterVideos } from "./watchLater.controller.js";
 
 // crate a new playlist
 const createPlaylist = asyncHandler(async (req, res) => {
