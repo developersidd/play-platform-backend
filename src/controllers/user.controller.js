@@ -592,13 +592,12 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
 // get user profile stats
 const getUserChannelStats = asyncHandler(async (req, res) => {
   const userId = createMongoId(req?.user?._id);
-  console.log(" userId:", userId)
   const cacheKey = generateCacheKey("user-profile-stats", userId);
   const cachedResponse = await checkCache(req, cacheKey);
-  // if (cachedResponse) {
-  //  console.log("Cache hit for user profile stats");
-  //  return res.status(200).json(cachedResponse);
-  // }
+  if (cachedResponse) {
+    console.log("Cache hit for user profile stats");
+    return res.status(200).json(cachedResponse);
+  }
   const channelStats = await User.aggregate([
     {
       $match: {
@@ -663,7 +662,7 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
       },
     },
   ]);
-  console.log(" channelStats:", channelStats)
+  // console.log(" channelStats:", channelStats)
 
   if (!channelStats?.length) {
     throw new ApiError(404, "Channel does not exist");

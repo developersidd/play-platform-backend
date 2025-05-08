@@ -22,67 +22,98 @@ import {
 // Get all videos
 
 const getAllVideos = asyncHandler(async (req, res) => {
-  // Extract pagination parameters from query string
   const {
     page = 1,
     limit = 10,
-    sortBy,
-    sortType,
-    username,
+    sortBy = "createdAt",
+    sortOrder = "desc",
     q,
-  } = req.query || {};
-  // throw new ApiError(400, "Invalid query parameters");
-  // search query
-  const searchQuery = { isPublished: true };
-  if (q) {
+    username,
+    expandQuery = false,
+    status = "published",
+  } = req.query;
+
+  const searchQuery = {};
+console.log("searchQuery:", q);
+  // Filter by publish status
+  if (status === "published") searchQuery.isPublished = true;
+  else if (status === "unpublished") searchQuery.isPublished = false;
+  else if (status === "all") delete searchQuery.isPublished;
+  // Search query
+  const decodedQ = decodeURIComponent(q);
+  if (decodedQ) {
     searchQuery.$or = [
-      { title: { $regex: q, $options: "i" } },
-      { description: { $regex: q, $options: "i" } },
+      { title: { $regex: decodedQ, $options: "i" } },
+      { description: { $regex: decodedQ, $options: "i" } },
       {
         tags: {
-          $in: q
+          $in: decodedQ
             .split(" ")
             .map((val) => val.toLowerCase())
-            .filter((val) => val),
+            .filter(Boolean),
         },
       },
     ];
   }
-  console.log(" q:", q);
 
-  // console.log("searchQuery:", JSON.stringify(searchQuery, null, 2));
+  // Sorting
+  const sortQuery = {
+    [decodeURIComponent(sortBy)]: sortOrder === "desc" ? -1 : 1,
+  };
+  console.log(" sortQuery:", sortQuery);
   if (username && username !== "guest") {
     const userId = await User.findOne({ username }).select("_id");
     if (!userId) {
       throw new ApiError(404, "User not found");
     }
+    console.log(" userId:", userId);
     searchQuery.owner = createMongoId(userId?._id);
   }
-  // sort query
-  const sortQuery = {};
-  if (sortBy) {
-    sortQuery[sortBy] = sortType === "desc" ? -1 : 1;
-  } else {
-    sortQuery.createdAt = -1;
-  }
 
-  const cacheKey = generateCacheKey("all-videos", req.query);
   // Check cache
-   await revalidateRelatedCaches(req, "all-videos");
+  const cacheKey = generateCacheKey("all-videos", req.query);
   const cachedRes = await checkCache(req, cacheKey);
-  // console.log(" cachedRes:", JSON.stringify(cachedRes, null, 2));
+  // if (cachedRes) {
+  //  return res.status(200).json(cachedRes);
+  // }
 
-  if (cachedRes) {
-    return res.status(200).json(cachedRes);
+  // if expandQuery is true, then we will add likes and dislikes count to the query
+  let expandQueryAggregation = [];
+  if (expandQuery) {
+    expandQueryAggregation = [
+      {
+        $lookup: {
+          from: "likes",
+          localField: "_id",
+          foreignField: "video",
+          as: "likes",
+        },
+      },
+      {
+        $lookup: {
+          from: "dislikes",
+          localField: "_id",
+          foreignField: "video",
+          as: "dislikes",
+        },
+      },
+      {
+        $set: {
+          likes: {
+            $size: "$likes",
+          },
+          dislikes: {
+            $size: "$dislikes",
+          },
+        },
+      },
+    ];
   }
 
   // Create the aggregation pipeline
   const aggregateQuery = Video.aggregate([
     {
       $match: searchQuery,
-    },
-    {
-      $sort: sortQuery,
     },
     {
       $lookup: {
@@ -104,12 +135,16 @@ const getAllVideos = asyncHandler(async (req, res) => {
         ],
       },
     },
+    ...expandQueryAggregation,
     {
       $set: {
         owner: {
           $first: "$owner",
         },
       },
+    },
+    {
+      $sort: sortQuery,
     },
   ]);
 
@@ -133,7 +168,6 @@ const getAllVideos = asyncHandler(async (req, res) => {
     },
     "Videos found"
   );
-  console.log(" result.docs:", result.docs);
   // Cache the response
   await setCache(req, response, cacheKey);
   return res.status(200).json(response);
@@ -359,7 +393,12 @@ const publishVideo = asyncHandler(async (req, res) => {
     duration,
     owner: req.user._id,
   });
-  console.log("created video:", video);
+  if (!video) {
+    throw new ApiError(500, "Failed to publish video");
+  }
+  res
+    .status(201)
+    .json(new ApiResponse(201, video, "Video published successfully"));
   // send notification to the subscribers
   const io = req.app.get("io");
 
@@ -396,10 +435,6 @@ const publishVideo = asyncHandler(async (req, res) => {
   });
   // revalidate all video cache
   await revalidateRelatedCaches(req, "all-videos");
-
-  return res
-    .status(201)
-    .json(new ApiResponse(201, video, "Video published successfully"));
 });
 
 // Delete video
