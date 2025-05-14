@@ -19,29 +19,29 @@ import {
   revalidateRelatedCaches,
   setCache,
 } from "../utils/redis.util.js";
-// Get all videos
 
+// Get all videos
 const getAllVideos = asyncHandler(async (req, res) => {
   const {
     page = 1,
     limit = 10,
     sortBy = "createdAt",
     sortOrder = "desc",
-    q,
+    q = "",
     username,
     expandQuery = false,
     status = "published",
   } = req.query;
 
   const searchQuery = {};
-console.log("searchQuery:", q);
   // Filter by publish status
   if (status === "published") searchQuery.isPublished = true;
   else if (status === "unpublished") searchQuery.isPublished = false;
   else if (status === "all") delete searchQuery.isPublished;
   // Search query
   const decodedQ = decodeURIComponent(q);
-  if (decodedQ) {
+  console.log(" decodedQ:", decodedQ);
+  if (decodedQ && decodedQ.trim() !== "") {
     searchQuery.$or = [
       { title: { $regex: decodedQ, $options: "i" } },
       { description: { $regex: decodedQ, $options: "i" } },
@@ -60,13 +60,11 @@ console.log("searchQuery:", q);
   const sortQuery = {
     [decodeURIComponent(sortBy)]: sortOrder === "desc" ? -1 : 1,
   };
-  console.log(" sortQuery:", sortQuery);
   if (username && username !== "guest") {
     const userId = await User.findOne({ username }).select("_id");
     if (!userId) {
       throw new ApiError(404, "User not found");
     }
-    console.log(" userId:", userId);
     searchQuery.owner = createMongoId(userId?._id);
   }
 
@@ -77,6 +75,7 @@ console.log("searchQuery:", q);
   //  return res.status(200).json(cachedRes);
   // }
 
+  console.log(" searchQuery:", searchQuery);
   // if expandQuery is true, then we will add likes and dislikes count to the query
   let expandQueryAggregation = [];
   if (expandQuery) {
@@ -155,6 +154,7 @@ console.log("searchQuery:", q);
   };
   // Use aggregatePaginate with the aggregation object (not array of stages)
   const result = await Video.aggregatePaginate(aggregateQuery, options);
+  console.log(" result:", result);
   // Create the response object
   const response = new ApiResponse(
     200,
@@ -285,7 +285,9 @@ const updateVideoCount = asyncHandler(async (req, res) => {
 // Update video by id
 const updateVideoById = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
-  const thumbnailLocalPath = req.file?.path;
+  console.log(" title, description:", title, description);
+  const thumbnailLocalPath = req?.file?.path;
+  console.log(" thumbnailLocalPath:", thumbnailLocalPath);
   if (
     [title, description, thumbnailLocalPath].every(
       (value) => value?.trim() === ""
@@ -293,9 +295,12 @@ const updateVideoById = asyncHandler(async (req, res) => {
   ) {
     throw new ApiError(400, "Please provide All required fields");
   }
-  const thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
-  if (!thumbnail?.public_id) {
-    throw new ApiError(500, "Failed to update thumbnail");
+  let thumbnail = null;
+  if (thumbnailLocalPath) {
+    thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
+    if (!thumbnail?.public_id) {
+      throw new ApiError(500, "Failed to update thumbnail");
+    }
   }
   const video = await Video.findByIdAndUpdate(
     req.params.id,
@@ -303,10 +308,12 @@ const updateVideoById = asyncHandler(async (req, res) => {
       $set: {
         title,
         description,
-        thumbnail: {
-          url: thumbnail.secure_url,
-          public_id: thumbnail.public_id,
-        },
+        ...(thumbnailLocalPath && {
+          thumbnail: {
+            url: thumbnail.secure_url,
+            public_id: thumbnail.public_id,
+          },
+        }),
       },
     },
     {
@@ -439,8 +446,18 @@ const publishVideo = asyncHandler(async (req, res) => {
 
 // Delete video
 const deleteVideo = asyncHandler(async (req, res) => {
-  const video = await Video.findByIdAndDelete(req.params.id);
+  // check if video exists
+  const video = await Video.findById(req.params.id);
   if (!video) {
+    throw new ApiError(404, "Video not found");
+  }
+  // check the owner of the video
+  if (video.owner.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, "You are not authorized to delete this video");
+  }
+  const deletedVideo = await Video.findByIdAndDelete(req.params.id);
+  console.log(" deletedVideo:", deletedVideo);
+  if (!deletedVideo) {
     throw new ApiError(500, "Failed to delete video");
   }
   // revalidate video cache

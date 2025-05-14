@@ -4,7 +4,6 @@ import WatchLater from "../models/watchLater.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { createMongoId } from "../utils/mongodb.util.js";
 import {
   checkCache,
   generateCacheKey,
@@ -64,85 +63,22 @@ const getUserWatchLaterVideos = asyncHandler(async (req, res) => {
   // check cache
   const cachedData = await checkCache(req, cacheKey);
   await revalidateCache(req, cacheKey);
-  // if (cachedData) {
-  //  return res.status(200).json(cachedData);
-  // }
+  if (cachedData) {
+    return res.status(200).json(cachedData);
+  }
 
-  const watchLater = await WatchLater.aggregate([
-    { $match: { owner: createMongoId(userId) } },
-    {
-      $unwind: "$videos",
-    },
-    {
-      $lookup: {
-        from: "videos",
-        localField: "videos.video",
-        foreignField: "_id",
-        as: "videos.video",
-        pipeline: [
-          {
-            $lookup: {
-              from: "users",
-              localField: "owner",
-              foreignField: "_id",
-              as: "owner",
-              pipeline: [
-                {
-                  $project: {
-                    username: 1,
-                    avatar: 1,
-                    _id: 1,
-                    fullName: 1,
-                  },
-                },
-              ],
-            },
-          },
-          {
-            $set: {
-              owner: { $arrayElemAt: ["$owner", 0] },
-            },
-          },
-          {
-            $project: {
-              title: 1,
-              thumbnail: 1,
-              duration: 1,
-              views: 1,
-              owner: 1,
-              createdAt: 1,
-            },
-          },
-        ],
+  const watchLater = await WatchLater.findOne({ owner: userId })
+    .populate({
+      path: "videos.video",
+      match: { isPublished: true },
+      select: "thumbnail title views duration createdAt owner",
+      populate: {
+        path: "owner",
+        select: "username avatar _id fullName",
       },
-    },
+    })
+    .sort({ "videos.position": 1 });
 
-    {
-      $set: {
-        video: { $arrayElemAt: ["$videos.video", 0] },
-      },
-    },
-    {
-      $addFields: {
-        position: "$videos.position",
-        _id: "$videos._id",
-        addedAt: "$videos.addedAt",
-      },
-    },
-    {
-      $project: {
-        video: 1,
-        position: 1,
-        _id: 1,
-        addedAt: 1,
-      }
-    },
-    {
-      $sort: {
-        position: 1,
-      },
-    },
-  ]);
   if (!watchLater) {
     throw new ApiError(404, "User watch later videos not found");
   }

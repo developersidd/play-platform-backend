@@ -1,5 +1,22 @@
 import { Schema, Types, model } from "mongoose";
 
+const videoEntrySchema = new Schema({
+  video: {
+    type: Types.ObjectId,
+    ref: "Video",
+    required: [true, "Video reference is required"],
+  },
+  position: {
+    type: Number,
+    required: [true, "Position is required"],
+    default: 0,
+  },
+  addedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
 const playlistSchema = new Schema(
   {
     name: {
@@ -18,12 +35,8 @@ const playlistSchema = new Schema(
       ref: "User",
       required: [true, "Owner is Required"],
     },
-    videos: [
-      {
-        type: Types.ObjectId,
-        ref: "Video",
-      },
-    ],
+    videos: [videoEntrySchema],
+
     type: {
       type: String,
       enum: ["collection", "playlist"],
