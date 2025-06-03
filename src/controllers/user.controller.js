@@ -18,7 +18,7 @@ import { createHistory } from "./loginHistory.controller.js";
 
 const cookieOptions = {
   httpOnly: true,
-  secure: true,
+  // secure: true,
 };
 
 const registerUser = asyncHandler(async (req, res) => {
@@ -26,7 +26,7 @@ const registerUser = asyncHandler(async (req, res) => {
   // 1. get user details from request body
   // 2. validate user details
   // 3. check if user already exists: username, email
-  // 4. check for Images, check for avatar
+  // 4. check for Images, check for avatarb
   // 5. Upload them to cloudinary - check upload successfully
   // 6. create user object - create entry in database
   // 7. remove password and refresh token from response
@@ -148,6 +148,7 @@ const loginUser = asyncHandler(async (req, res) => {
   // 7. send response to client
 
   const { username, email, password } = req.body || {};
+  console.log(req.body);
   // check if all required fields are provided
   if (!(username || email) || !password) {
     throw new ApiError(400, "Please provide all required fields");
@@ -208,7 +209,11 @@ const logoutUser = asyncHandler(async (req, res) => {
       new: true,
     }
   );
-  await LoginHistory.findByIdAndDelete(req.user?.loginHistoryId);
+  await LoginHistory.findByIdAndUpdate(req.user?.loginHistoryId, {
+    $set: {
+      token: null,
+    },
+  });
   console.log("req.user:", req.user);
   // clear the cookies
   return res

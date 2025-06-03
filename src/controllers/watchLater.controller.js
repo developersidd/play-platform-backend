@@ -10,6 +10,7 @@ import {
   revalidateCache,
   setCache,
 } from "../utils/redis.util.js";
+import { createMongoId } from "../utils/mongodb.util.js";
 
 // crate a new playlist
 const addVideoInWatchLater = asyncHandler(async (req, res) => {
@@ -67,18 +68,81 @@ const getUserWatchLaterVideos = asyncHandler(async (req, res) => {
     return res.status(200).json(cachedData);
   }
 
-  const watchLater = await WatchLater.findOne({ owner: userId })
-    .populate({
-      path: "videos.video",
-      match: { isPublished: true },
-      select: "thumbnail title views duration createdAt owner",
-      populate: {
-        path: "owner",
-        select: "username avatar _id fullName",
+  const watchLater = await WatchLater.aggregate([
+    { $match: { owner: createMongoId(userId) } },
+    {
+      $unwind: "$videos",
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "videos.video",
+        foreignField: "_id",
+        as: "videos.video",
+        pipeline: [
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+              pipeline: [
+                {
+                  $project: {
+                    username: 1,
+                    avatar: 1,
+                    _id: 1,
+                    fullName: 1,
+                  },
+                },
+              ],
+            },
+          },
+          {
+            $set: {
+              owner: { $arrayElemAt: ["$owner", 0] },
+            },
+          },
+          {
+            $project: {
+              title: 1,
+              thumbnail: 1,
+              duration: 1,
+              views: 1,
+              owner: 1,
+              createdAt: 1,
+            },
+          },
+        ],
       },
-    })
-    .sort({ "videos.position": 1 });
+    },
 
+    {
+      $set: {
+        video: { $arrayElemAt: ["$videos.video", 0] },
+      },
+    },
+    {
+      $addFields: {
+        position: "$videos.position",
+        _id: "$videos._id",
+        addedAt: "$videos.addedAt",
+      },
+    },
+    {
+      $project: {
+        video: 1,
+        position: 1,
+        _id: 1,
+        addedAt: 1,
+      }
+    },
+    {
+      $sort: {
+        position: 1,
+      },
+    },
+  ]);
   if (!watchLater) {
     throw new ApiError(404, "User watch later videos not found");
   }

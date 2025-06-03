@@ -7,14 +7,9 @@ const loginHistorySchema = new Schema(
       ref: "User",
       required: [true, "User is required"],
     },
-    time: {
-      type: String,
-      required: true,
-    },
-    /* isActive: {
+    isActive: {
       type: Boolean,
-      default: true,
-    }, */
+    },
     token: {
       type: String,
       required: [true, "Token is required"],

@@ -22,6 +22,7 @@ import {
 
 // Get all videos
 const getAllVideos = asyncHandler(async (req, res) => {
+  
   const {
     page = 1,
     limit = 10,
@@ -154,7 +155,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
   };
   // Use aggregatePaginate with the aggregation object (not array of stages)
   const result = await Video.aggregatePaginate(aggregateQuery, options);
-  console.log(" result:", result);
+  // console.log(" result:", result);
   // Create the response object
   const response = new ApiResponse(
     200,

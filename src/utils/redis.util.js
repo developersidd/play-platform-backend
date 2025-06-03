@@ -9,7 +9,7 @@ const checkCache = async (req, cacheKey) => {
   const { redisClient } = req.app.locals || {};
   const cachedData = await redisClient.get(cacheKey);
   if (cachedData) {
-    console.log("Cache hit");
+    // console.log("Cache hit");
     return JSON.parse(cachedData);
   }
   return false;
@@ -33,9 +33,9 @@ const revalidateRelatedCaches = async (req, prefixKey) => {
   // Delete all related cache keys
   const videoCachePattern = `app:${prefixKey}:*`;
   const keys = await redisClient.keys(videoCachePattern);
-  console.log("keys:", keys);
+  // console.log("keys:", keys);
   if (keys.length > 0) {
-    console.log("Deleting related caches");
+    // console.log("Deleting related caches");
     await redisClient.del(...keys); // Delete all related caches
   }
 };
@@ -47,7 +47,7 @@ async function addViewIfNotExists(req, videoId, userIp) {
 
   // Check if the user (IP) has already viewed the video within the last 24 hours
   const viewExists = await checkCache(req, redisKey);
-  console.log("viewExists:", viewExists)
+  // console.log("viewExists:", viewExists)
 
   if (!viewExists) {
     // Set a key with an expiry of 24 hours (86400 seconds) in Redis
@@ -68,5 +68,6 @@ export {
   generateCacheKey,
   revalidateCache,
   revalidateRelatedCaches,
-  setCache,
+  setCache
 };
+

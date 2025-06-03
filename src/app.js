@@ -112,14 +112,18 @@ io.on("connection", (socket) => {
 // Attach io instance to Express app
 app.set("io", io);
 
-
 // Middlewares
 app.use(express.json({ limit: "20kb" }));
 // for parsing application/x-www-form-urlencoded data from the client side form submission (e.g., login form) and extended: true allows for nested objects in the form data
 app.use(express.urlencoded({ limit: "20kb" }));
 // Anything in this directory will be served up as static content.
 app.use(express.static("public"));
-app.use(cors({ credentials: true, origin: process.env.CORS_ORIGIN }));
+app.use(
+  cors({
+    credentials: true,
+    origin: ["http://localhost:3000", "http://192.168.10.101:3000"],
+  })
+);
 app.use(cookieParser());
 
 app.use(requestIp.mw());
@@ -133,7 +137,7 @@ app.use("/api/v1/tweets", tweetRouter);
 app.use("/api/v1/comments", commentRouter);
 app.use("/api/v1/subscriptions", subscriptionRouter);
 app.use("/api/v1/notifications", notificationRouter);
-app.use("/api/v1/watch-later", watchLaterRouter)
+app.use("/api/v1/watch-later", watchLaterRouter);
 app.use("/api/v1/login-history", loginHistoryRouter);
 app.use("/healthcheck", healthcheckRouter);
 // 404 Error Handler
@@ -154,4 +158,3 @@ app.use((err, req, res, next) => {
 });
 
 export { app, server };
-

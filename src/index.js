@@ -1,6 +1,6 @@
 // Dependencies
 import dotenv from "dotenv";
-import {app, server} from "./app.js";
+import { app, server } from "./app.js";
 import connectDB from "./db/index.js";
 import swaggerDocs from "./utils/swagger.js";
 // configure environment variables

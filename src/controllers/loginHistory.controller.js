@@ -6,26 +6,22 @@ import asyncHandler from "../utils/asyncHandler.js";
 const createHistory = asyncHandler(async (req, res, { token, userId }) => {
   // Login History
   const detector = new DeviceDetector({
-    clientIndexes: true,
-    deviceIndexes: true,
-    deviceAliasCode: false,
-    deviceTrusted: false,
-    deviceInfo: false,
-    maxUserAgentSize: 500,
+    deviceAliasCode: true,
+    deviceInfo: true,
   });
+  const userAgent = req.headers["user-agent"];
+
   let deviceInfo = {};
   const ip = req.clientIp;
-  console.log("ip:", ip);
-  const userAgent = req.headers["user-agent"];
-  console.log("userAgent:", userAgent);
   const result = detector.detect(userAgent);
-  console.log("result:", result);
+  console.log(" result:", result);
   if (result) {
     deviceInfo = {
       os: result.os.name,
-      model: result.device.model ?? "",
-      browser: result.client.name,
-      deviceTye: result.device.type,
+      version: result.os.version || "Unknown",
+      model: result.device.model || "Unknown",
+      browser: result.client.name || "Unknown",
+      deviceType: result.device.type || "Unknown",
     };
   }
 
@@ -50,11 +46,37 @@ const createHistory = asyncHandler(async (req, res, { token, userId }) => {
   return loginHistory;
 });
 
+// check if the user has login history using the access token getting from params request
+
+const hasLoginHistory = asyncHandler(async (req, res) => {
+  const { accessToken } = req.params;
+  const loginHistory = await LoginHistory.findOne({
+    token: accessToken,
+    user: req.user._id,
+  });
+  console.log(" loginHistory:", loginHistory);
+  if (!loginHistory) {
+    return res
+      .status(401)
+      .json(new ApiResponse(404, {}, "Login history not found"));
+  }
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        hasLoginHistory: true,
+      },
+      "Login history found"
+    )
+  );
+});
+
 const getLoginHistory = asyncHandler(async (req, res) => {
   const data = await LoginHistory.find({ user: req.user._id });
-  console.log("data:", data);
+  console.log("history id:", req.user.loginHistoryId);
+  // console.log("history user:", req.user);
   const modifiedHistory = data.map((history) => {
-    if (history.token === req.cookies.accessToken) {
+    if (history?._id?.toString() === req.user.loginHistoryId) {
       return {
         ...history._doc,
         isActive: true,
@@ -63,26 +85,35 @@ const getLoginHistory = asyncHandler(async (req, res) => {
     return history._doc;
   });
   // cache the response
-  const { redisClient } = req.app.locals || {};
+  // const { redisClient } = req.app.locals || {};
   const response = new ApiResponse(200, modifiedHistory, "Login history found");
-  redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  // redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
   return res.status(200).json(response);
 });
 
-const logoutSingleDevice = asyncHandler(async (req, res) => {
+// Delete a single login history record
+const deleteLoginHistory = asyncHandler(async (req, res) => {
   const { id: loginHistoryId } = req.params;
 
   await LoginHistory.findByIdAndDelete(loginHistoryId);
-  return res.status(200).json(new ApiResponse(200, {}, "Logout successful"));
+  return res.status(200).json(new ApiResponse(200, {}, "Login history deleted"))
+    .cookies;
 });
 
-const logoutAllDevices = asyncHandler(async (req, res) => {
+// Delete all login records except the current one
+const deleteAllLoginHistory = asyncHandler(async (req, res) => {
   await LoginHistory.deleteMany({
     $and: [{ user: req.user._id }, { token: { $ne: req.cookies.accessToken } }],
   });
   return res
     .status(200)
-    .json(new ApiResponse(200, {}, "Logout from all devices successful"));
+    .json(new ApiResponse(200, {}, "All login history deleted"));
 });
 
-export { createHistory, getLoginHistory, logoutAllDevices, logoutSingleDevice };
+export {
+  createHistory,
+  deleteAllLoginHistory,
+  deleteLoginHistory,
+  getLoginHistory,
+  hasLoginHistory,
+};

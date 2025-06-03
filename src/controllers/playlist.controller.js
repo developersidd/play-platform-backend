@@ -68,6 +68,7 @@ const createPlaylist = asyncHandler(async (req, res) => {
 const getUserPlaylists = asyncHandler(async (req, res) => {
   const { username = "" } = req.params || {};
   const { isPrivate = false } = req.query || {};
+  console.log("req", req.params, req.query);
   if (!username) {
     throw new ApiError(400, "Invalid User Name");
   }
@@ -88,7 +89,11 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
   const result = await Playlist.aggregate([
     // Match the specific playlist
     {
-      $match: { owner: createMongoId(user?._id), isPrivate, type: "playlist" },
+      $match: {
+        owner: createMongoId(user?._id),
+        isPrivate: Boolean(isPrivate),
+        type: "playlist",
+      },
     },
     // Lookup to populate only the first video
     {
@@ -144,11 +149,10 @@ const getUserCollections = asyncHandler(async (req, res) => {
   const cacheKey = generateCacheKey("user-collection", userId, req.query);
   // check cache
   await revalidateCache(req, cacheKey);
-  // const cachedData = await checkCache(req, cacheKey);
-  // if (cachedData) {
-  //  return res.status(200).json(cachedData);
-  // }
-  //
+  const cachedData = await checkCache(req, cacheKey);
+  if (cachedData) {
+    return res.status(200).json(cachedData);
+  }
 
   let result;
   if (!expand) {
@@ -221,7 +225,7 @@ const getPlaylistById = asyncHandler(async (req, res) => {
   const cacheKey = generateCacheKey("playlist", playlistId);
   // check cache
   const cachedData = await checkCache(req, cacheKey);
-  await revalidateCache(req, cacheKey);
+  // await revalidateCache(req, cacheKey);
   if (cachedData) {
     return res.status(200).json(cachedData);
   }
@@ -257,7 +261,6 @@ const getPlaylistById = asyncHandler(async (req, res) => {
 // add a video to a playlist
 const toggleVideoInPlaylist = asyncHandler(async (req, res) => {
   const { playlistId, videoId } = req.params;
-  console.log(" videoIdaaa:", videoId)
   const { value } = req.body;
   if (!isValidObjectId(playlistId) || !isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid Playlist or Video Id");
@@ -267,7 +270,6 @@ const toggleVideoInPlaylist = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Video not found or not published");
   }
   const playlist = await Playlist.findById(playlistId);
-  console.log(" playlist:", playlist)
   if (!value) {
     const updatedPlaylist = await Playlist.findByIdAndUpdate(
       playlistId,
@@ -312,7 +314,9 @@ const toggleVideoInPlaylist = asyncHandler(async (req, res) => {
 // update a playlist
 const updatePlaylist = asyncHandler(async (req, res) => {
   const { playlistId } = req.params;
-  const { name, description } = req.body;
+  const { name, description, isPrivate, videos } = req.body;
+  const cacheKey = generateCacheKey("playlist", playlistId);
+
   if (!isValidObjectId(playlistId)) {
     throw new ApiError(400, "Invalid Playlist Id");
   }
@@ -324,6 +328,8 @@ const updatePlaylist = asyncHandler(async (req, res) => {
     {
       name,
       description,
+      isPrivate,
+      videos,
     },
     {
       new: true,
@@ -332,6 +338,8 @@ const updatePlaylist = asyncHandler(async (req, res) => {
   if (!playlist) {
     throw new ApiError(404, "Playlist not found");
   }
+
+  await revalidateCache(req, cacheKey);
   return res
     .status(200)
     .json(new ApiResponse(200, playlist, "Playlist updated"));

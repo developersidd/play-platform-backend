@@ -1,16 +1,19 @@
 import express from "express";
 
 import {
+  deleteAllLoginHistory,
+  deleteLoginHistory,
   getLoginHistory,
-  logoutAllDevices,
-  logoutSingleDevice,
+  hasLoginHistory,
 } from "../controllers/loginHistory.controller.js";
 import verifyJWT from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 router.use(verifyJWT);
 router.get("/", getLoginHistory);
-router.get("/single/logout/:id", logoutSingleDevice);
-router.get("/all/logout", logoutAllDevices);
+router.get("/has/:accessToken", hasLoginHistory);
+router.get("");
+router.delete("/remove/:id", deleteLoginHistory);
+router.delete("/remove/all", deleteAllLoginHistory);
 
 export default router;
