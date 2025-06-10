@@ -7,6 +7,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 import { createMongoId } from "../utils/mongodb.util.js";
 import { checkCache, generateCacheKey, setCache } from "../utils/redis.util.js";
 
+// Toggle subscription for a channel
 const toggleSubscription = asyncHandler(async (req, res) => {
   const { channelId } = req.params;
   const subscriber = req.user?._id;
@@ -38,6 +39,30 @@ const toggleSubscription = asyncHandler(async (req, res) => {
   return res
     .status(201)
     .json(new ApiResponse(201, subscription, "Subscribed successfully"));
+});
+
+// off notification for a channel
+const offNotification = asyncHandler(async (req, res) => {
+  const { channelId } = req.params;
+  const subscriber = req.user?._id;
+
+  if (!isValidObjectId(channelId)) {
+    throw new ApiError(400, "Invalid channel id");
+  }
+
+  const subscription = await Subscription.findOneAndUpdate(
+    { subscriber, channel: channelId },
+    { $set: { isNotificationOn: false } },
+    { new: true }
+  );
+
+  if (!subscription) {
+    throw new ApiError(404, "Subscription not found");
+  }
+
+  res
+    .status(200)
+    .json(new ApiResponse(200, subscription, "Notification turned off"));
 });
 
 // controller to return subscriber list of a channel
@@ -73,7 +98,6 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
 
   const cachedRes = await checkCache(req, cacheKey);
   if (cachedRes) {
-    console.log("cachedRes expand");
     return res.status(200).json(JSON.parse(cachedRes));
   }
 
@@ -147,9 +171,11 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
   if (!user) {
     throw new ApiError(404, "User not found");
   }
+  const decodedSearch = decodeURIComponent(search || "");
+  console.log(" decodedSearch:", decodedSearch);
   const cacheKey = generateCacheKey("subscribed-channels", {
     username,
-    search,
+    search: decodedSearch,
     page,
     limit,
   });
@@ -232,18 +258,21 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
   );
 
   // search the result
-  const searchedResult = result.docs.filter(({ channel }) => {
-    if (search) {
-      return (
-        channel.username.toLowerCase().includes(search.toLowerCase()) ||
-        channel.fullName.toLowerCase().includes(search.toLowerCase())
-      );
-    }
-  });
+  let searchedResult = [];
+  if (decodedSearch?.trim()?.length > 0) {
+    searchedResult = result.docs.filter(
+      ({ channel }) =>
+        channel?.username
+          ?.toLowerCase()
+          ?.includes(decodedSearch.toLowerCase()) ||
+        channel?.fullName?.toLowerCase()?.includes(decodedSearch.toLowerCase())
+    );
+  }
+
   const response = new ApiResponse(
     200,
     {
-      subscribedChannels: search ? searchedResult : result.docs,
+      subscribedChannels: decodedSearch ? searchedResult : result.docs,
       totalSubscribedChannels: result.totalDocs,
       totalPages: result.totalPages,
       currentPage: result.page,
@@ -293,5 +322,6 @@ export {
   checkSubscriptionStatus,
   getSubscribedChannels,
   getUserChannelSubscribers,
+  offNotification,
   toggleSubscription,
 };

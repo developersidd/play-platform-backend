@@ -138,15 +138,6 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, createdUser, "User registered successfully"));
 });
 const loginUser = asyncHandler(async (req, res) => {
-  /* Steps to login user */
-  // 1. get user details from request body
-  // 2. validate user details
-  // 3. check if user exists: username, email
-  // 4. check password
-  // 5. create access and refresh token
-  // 6. set refresh token in cookie
-  // 7. send response to client
-
   const { username, email, password } = req.body || {};
   console.log(req.body);
   // check if all required fields are provided

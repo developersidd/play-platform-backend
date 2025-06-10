@@ -19,7 +19,6 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
       process.env.ACCESS_TOKEN_SECRET
     );
     const user = await User.findById(decodedToken?._id).select("-password");
-    const userAgent = req.headers["user-agent"];
    
     if (!user) {
       throw new ApiError(401, "Invalid Access Token");
@@ -40,7 +39,6 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
       accessToken,
       loginHistoryId: loginHistory?._id.toString(),
     };
-    // console.log("req.user from auth:", req.user);
     next();
   } catch (error) {
     console.log("error:", error);

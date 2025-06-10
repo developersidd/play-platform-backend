@@ -22,7 +22,6 @@ import {
 
 // Get all videos
 const getAllVideos = asyncHandler(async (req, res) => {
-  
   const {
     page = 1,
     limit = 10,
@@ -71,10 +70,11 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
   // Check cache
   const cacheKey = generateCacheKey("all-videos", req.query);
+   await revalidateRelatedCaches(req, "all-videos");
   const cachedRes = await checkCache(req, cacheKey);
-  // if (cachedRes) {
-  //  return res.status(200).json(cachedRes);
-  // }
+  if (cachedRes) {
+    return res.status(200).json(cachedRes);
+  }
 
   console.log(" searchQuery:", searchQuery);
   // if expandQuery is true, then we will add likes and dislikes count to the query
@@ -414,6 +414,7 @@ const publishVideo = asyncHandler(async (req, res) => {
   const mongoChannelId = createMongoId(_id);
   const subscribers = await Subscription.find({
     channel: mongoChannelId,
+    allowNotifications: true,
   }).ne("subscriber", _id);
 
   // Create notification objects for all subscribers first
@@ -467,6 +468,31 @@ const deleteVideo = asyncHandler(async (req, res) => {
   // revalidate all videos cache
   await revalidateRelatedCaches(req, "all-videos");
   return res.status(200).json(new ApiResponse(200, {}, "Video deleted"));
+});
+
+// Delete many videos
+const deleteManyVideos = asyncHandler(async (req, res) => {
+  const { videoIds } = req.body;
+  if (!Array.isArray(videoIds) || videoIds.length === 0) {
+    throw new ApiError(400, "Please provide video ids to delete");
+  }
+  console.log(" videoIds:", videoIds);
+
+  // check if all video ids are valid
+  const validIds = videoIds.filter((id) => isValidObjectId(id));
+  if (validIds.length !== videoIds.length) {
+    throw new ApiError(400, "Invalid video ids provided");
+  }
+
+  // delete videos
+  const result = await Video.deleteMany({ _id: { $in: videoIds } });
+  console.log(" result:", result);
+  if (result.deletedCount === 0) {
+    throw new ApiError(500, "Failed to delete videos");
+  }
+  await revalidateRelatedCaches(req, "all-videos");
+  // revalidate all videos cache
+  return res.status(200).json(new ApiResponse(200, {}, "Videos deleted"));
 });
 
 // update video publish status
@@ -658,6 +684,7 @@ const getLikedVideos = asyncHandler(async (req, res) => {
 });
 
 export {
+  deleteManyVideos,
   deleteVideo,
   getAllVideos,
   getLikedVideos,

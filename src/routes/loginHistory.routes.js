@@ -11,7 +11,7 @@ import verifyJWT from "../middlewares/auth.middleware.js";
 const router = express.Router();
 router.use(verifyJWT);
 router.get("/", getLoginHistory);
-router.get("/has/:accessToken", hasLoginHistory);
+router.get("/has", hasLoginHistory);
 router.get("");
 router.delete("/remove/:id", deleteLoginHistory);
 router.delete("/remove/all", deleteAllLoginHistory);

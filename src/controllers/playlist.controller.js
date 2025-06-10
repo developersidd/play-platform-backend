@@ -150,9 +150,10 @@ const getUserCollections = asyncHandler(async (req, res) => {
   // check cache
   await revalidateCache(req, cacheKey);
   const cachedData = await checkCache(req, cacheKey);
-  if (cachedData) {
-    return res.status(200).json(cachedData);
-  }
+  // if (cachedData) {
+  //  return res.status(200).json(cachedData);
+  // }
+  //
 
   let result;
   if (!expand) {
@@ -169,16 +170,33 @@ const getUserCollections = asyncHandler(async (req, res) => {
         $match: { owner: createMongoId(userId), isPrivate, type: "collection" },
       },
 
-      // Lookup to populate only the first video
+      // Sort the playlist videos array by position
+      {
+        $addFields: {
+          videos: {
+            $sortArray: {
+              input: "$videos",
+              sortBy: { position: 1 },
+            },
+          },
+        },
+      },
+
+      // Get the first video ID
+      {
+        $addFields: {
+          firstVideoId: { $arrayElemAt: ["$videos.video", 0] },
+        },
+      },
+
+      // Lookup only that first video
       {
         $lookup: {
           from: "videos",
-          localField: "videos.video",
+          localField: "firstVideoId",
           foreignField: "_id",
-          as: "populatedVideos",
-
+          as: "firstVideo",
           pipeline: [
-            { $limit: 1 },
             {
               $project: {
                 thumbnail: 1,
@@ -188,24 +206,29 @@ const getUserCollections = asyncHandler(async (req, res) => {
                 createdAt: 1,
               },
             },
-          ], // Populate only the first video
+          ],
         },
       },
 
-      // Replace the first video in the videos array with the populated one
+      // Replace the first item in videos array with the populated version
       {
         $addFields: {
           videos: {
             $concatArrays: [
-              { $slice: ["$populatedVideos", 1] }, // Replace the first video ID with the populated video
-              { $slice: ["$videos", 1, { $size: "$videos" }] }, // Retain the rest of the video IDs
+              "$firstVideo", // populated
+              { $slice: ["$videos", 1, { $size: "$videos" }] }, // rest of raw ones
             ],
           },
         },
       },
 
-      // Remove the temporary populatedVideos array
-      { $project: { populatedVideos: 0 } },
+      // Clean up
+      {
+        $project: {
+          firstVideoId: 0,
+          firstVideo: 0,
+        },
+      },
     ]);
   }
 
@@ -225,10 +248,10 @@ const getPlaylistById = asyncHandler(async (req, res) => {
   const cacheKey = generateCacheKey("playlist", playlistId);
   // check cache
   const cachedData = await checkCache(req, cacheKey);
-  // await revalidateCache(req, cacheKey);
-  if (cachedData) {
+   await revalidateCache(req, cacheKey);
+   if (cachedData) {
     return res.status(200).json(cachedData);
-  }
+   }
   const playlist = await Playlist.findById(playlistId)
     .populate({
       path: "owner",

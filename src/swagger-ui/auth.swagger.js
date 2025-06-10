@@ -171,6 +171,7 @@
  *            required:
  *              - refreshToken
  *            properties:
+ * 
  *              refreshToken:
  *                type: string
  *                example: refresh_token_here

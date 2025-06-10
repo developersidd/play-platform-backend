@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  deleteManyVideos,
   deleteVideo,
   getAllVideos,
   getLikedVideos,
@@ -34,7 +35,8 @@ router
     publishVideo
   )
   .patch(verifyJWT, updateAllVideo)
-  .get(getAllVideos);
+  .get(getAllVideos)
+  .delete(verifyJWT, deleteManyVideos);
 // related video routes
 router.get("/related/:id", getRelatedVideos);
 

@@ -13,6 +13,10 @@ const subscriptionSchema = new Schema(
       ref: "User",
       required: true,
     },
+    isNotificationOn: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true }
 );

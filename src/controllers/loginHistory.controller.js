@@ -1,3 +1,4 @@
+import  jwt  from "jsonwebtoken";
 import DeviceDetector from "node-device-detector";
 import LoginHistory from "../models/loginHistory.model.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -14,7 +15,6 @@ const createHistory = asyncHandler(async (req, res, { token, userId }) => {
   let deviceInfo = {};
   const ip = req.clientIp;
   const result = detector.detect(userAgent);
-  console.log(" result:", result);
   if (result) {
     deviceInfo = {
       os: result.os.name,
@@ -49,12 +49,15 @@ const createHistory = asyncHandler(async (req, res, { token, userId }) => {
 // check if the user has login history using the access token getting from params request
 
 const hasLoginHistory = asyncHandler(async (req, res) => {
-  const { accessToken } = req.params;
+  const accessToken =
+    req?.cookies?.accessToken ||
+    req.header("Authorization")?.replace("Bearer ", "");
+  const decoded = jwt.decode(accessToken);
+  const userId = decoded?._id;
   const loginHistory = await LoginHistory.findOne({
     token: accessToken,
-    user: req.user._id,
+    user: userId,
   });
-  console.log(" loginHistory:", loginHistory);
   if (!loginHistory) {
     return res
       .status(401)

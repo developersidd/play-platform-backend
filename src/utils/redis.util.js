@@ -4,7 +4,7 @@ import Video from "../models/video.model.js";
 const generateCacheKey = (resource, ...props) =>
   `app:${resource}:${JSON.stringify(...props)}`;
 
-// check cache 
+// check cache
 const checkCache = async (req, cacheKey) => {
   const { redisClient } = req.app.locals || {};
   const cachedData = await redisClient.get(cacheKey);
@@ -33,9 +33,9 @@ const revalidateRelatedCaches = async (req, prefixKey) => {
   // Delete all related cache keys
   const videoCachePattern = `app:${prefixKey}:*`;
   const keys = await redisClient.keys(videoCachePattern);
-  // console.log("keys:", keys);
+  console.log("rvlad keys:", keys, keys.length);
   if (keys.length > 0) {
-    // console.log("Deleting related caches");
+    console.count("Deleting related caches");
     await redisClient.del(...keys); // Delete all related caches
   }
 };
@@ -68,6 +68,5 @@ export {
   generateCacheKey,
   revalidateCache,
   revalidateRelatedCaches,
-  setCache
+  setCache,
 };
-
