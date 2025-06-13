@@ -6,7 +6,7 @@ import {
   toggleTweetDisLike,
   toggleVideoDisLike,
 } from "../controllers/dislike.controller.js";
-import verifyJWT from "../middlewares/auth.middleware.js";
+import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 router.get("/video/:videoId", getVideoDisLikes);

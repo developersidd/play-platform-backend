@@ -19,7 +19,7 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
       process.env.ACCESS_TOKEN_SECRET
     );
     const user = await User.findById(decodedToken?._id).select("-password");
-   
+
     if (!user) {
       throw new ApiError(401, "Invalid Access Token");
     }
@@ -29,9 +29,8 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
         $and: [{ user: user?._id }, { token: accessToken }],
       });
     }
-   
+
     if (!loginHistory?._id) {
-     
       throw new ApiError(401, "Login history not found");
     }
     req.user = {
@@ -46,4 +45,15 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
   }
 });
 
-export default verifyJWT;
+// verify authorization roles
+const verifyAuthorization =
+  (...roles) =>
+  (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      console.log("User role:", req.user?.role);
+      return next(new ApiError(403, "Forbidden"));
+    }
+    next();
+  };
+
+export { verifyAuthorization, verifyJWT };

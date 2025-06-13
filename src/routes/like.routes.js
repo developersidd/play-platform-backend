@@ -5,7 +5,7 @@ import {
   toggleTweetLike,
   toggleVideoLike,
 } from "../controllers/like.controller.js";
-import verifyJWT from "../middlewares/auth.middleware.js";
+import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 router.get("/video/:videoId", getVideoLikes);

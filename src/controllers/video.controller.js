@@ -40,7 +40,6 @@ const getAllVideos = asyncHandler(async (req, res) => {
   else if (status === "all") delete searchQuery.isPublished;
   // Search query
   const decodedQ = decodeURIComponent(q);
-  console.log(" decodedQ:", decodedQ);
   if (decodedQ && decodedQ.trim() !== "") {
     searchQuery.$or = [
       { title: { $regex: decodedQ, $options: "i" } },
@@ -70,13 +69,11 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
   // Check cache
   const cacheKey = generateCacheKey("all-videos", req.query);
-   await revalidateRelatedCaches(req, "all-videos");
   const cachedRes = await checkCache(req, cacheKey);
   if (cachedRes) {
     return res.status(200).json(cachedRes);
   }
 
-  console.log(" searchQuery:", searchQuery);
   // if expandQuery is true, then we will add likes and dislikes count to the query
   let expandQueryAggregation = [];
   if (expandQuery) {
@@ -286,6 +283,10 @@ const updateVideoCount = asyncHandler(async (req, res) => {
 // Update video by id
 const updateVideoById = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
+  const videoId = req.params.id;
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(400, "Invalid video Id");
+  }
   console.log(" title, description:", title, description);
   const thumbnailLocalPath = req?.file?.path;
   console.log(" thumbnailLocalPath:", thumbnailLocalPath);
@@ -304,7 +305,7 @@ const updateVideoById = asyncHandler(async (req, res) => {
     }
   }
   const video = await Video.findByIdAndUpdate(
-    req.params.id,
+    videoId,
     {
       $set: {
         title,
@@ -325,7 +326,7 @@ const updateVideoById = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Failed to update video");
   }
   // delete the video cache
-  const cacheKey = generateCacheKey("video", req.params.id);
+  const cacheKey = generateCacheKey("video", videoId);
   await revalidateCache(req, cacheKey);
   // revalidate all videos cache
   await revalidateRelatedCaches(req, "all-videos");

@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 
+import { isValidObjectId } from "mongoose";
 import LoginHistory from "../models/loginHistory.model.js";
 import Notification from "../models/notification.model.js";
 import User from "../models/user.model.js";
@@ -13,7 +14,13 @@ import {
 } from "../utils/cloudinary.js";
 import generateAuthTokens from "../utils/generateAuthTokens.js";
 import { createMongoId } from "../utils/mongodb.util.js";
-import { checkCache, generateCacheKey, setCache } from "../utils/redis.util.js";
+import {
+  checkCache,
+  generateCacheKey,
+  revalidateCache,
+  revalidateRelatedCaches,
+  setCache,
+} from "../utils/redis.util.js";
 import { createHistory } from "./loginHistory.controller.js";
 
 const cookieOptions = {
@@ -22,17 +29,6 @@ const cookieOptions = {
 };
 
 const registerUser = asyncHandler(async (req, res) => {
-  /* Steps to register user */
-  // 1. get user details from request body
-  // 2. validate user details
-  // 3. check if user already exists: username, email
-  // 4. check for Images, check for avatarb
-  // 5. Upload them to cloudinary - check upload successfully
-  // 6. create user object - create entry in database
-  // 7. remove password and refresh token from response
-  // 8. check for user creation
-  // 9. send response to client
-
   const { username, fullName, email, password } = req.body || {};
   // check if all required fields are provided
   if (
@@ -401,9 +397,151 @@ const getCurrentUser = asyncHandler((req, res) =>
   res.status(200).json(new ApiResponse(200, req?.user, "User found"))
 );
 
+// get all users
 const getAllUsers = asyncHandler(async (req, res) => {
-  const users = await User.find({}).select("-password");
-  return res.status(200).json(new ApiResponse(200, users, "All users found"));
+  const {
+    page = 1,
+    limit = 10,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+    q = "",
+  } = req.query;
+
+  // Sorting
+  const sortQuery = {
+    [decodeURIComponent(sortBy)]: sortOrder === "desc" ? -1 : 1,
+  };
+  console.log(" sortQuery:", sortQuery);
+  const searchQuery = {};
+  const decodedQuery = decodeURIComponent(q);
+  if (decodedQuery?.length > 0) {
+    searchQuery.$or = [
+      { fullName: { $regex: decodedQuery, $options: "i" } },
+      { username: { $regex: decodedQuery, $options: "i" } },
+      { email: { $regex: decodedQuery, $options: "i" } },
+    ];
+  }
+  // Check cache
+  const cacheKey = generateCacheKey("all-users", req.query);
+  await revalidateCache(req, cacheKey);
+  const cachedRes = await checkCache(req, cacheKey);
+  if (cachedRes) {
+    console.log("cache hit for all users");
+    return res.status(200).json(cachedRes);
+  }
+
+  const aggregateQuery = User.aggregate([
+    {
+      $match: searchQuery,
+    },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "_id",
+        foreignField: "owner",
+        as: "videos",
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedChannels",
+      },
+    },
+    {
+      $lookup: {
+        from: "tweets",
+        localField: "_id",
+        foreignField: "owner",
+        as: "tweets",
+      },
+    },
+    {
+      $addFields: {
+        videosCount: { $size: "$videos" },
+        subscribersCount: { $size: "$subscribers" },
+        tweetsCount: { $size: "$tweets" },
+        subscribedChannelsCount: { $size: "$subscribedChannels" },
+      },
+    },
+    {
+      $project: {
+        email: 1,
+        fullName: 1,
+        username: 1,
+        avatar: 1,
+        coverImage: 1,
+        subscribersCount: 1,
+        videosCount: 1,
+
+        tweetsCount: 1,
+        subscribedChannelsCount: 1,
+        createdAt: 1,
+      },
+    },
+    {
+      $sort: sortQuery,
+    },
+  ]);
+
+  // Use aggregatePaginate for pagination
+  const options = {
+    page: parseInt(page, 10),
+    limit: parseInt(limit, 10),
+  };
+  // Use aggregatePaginate with the aggregation object (not array of stages)
+  const result = await User.aggregatePaginate(aggregateQuery, options);
+  // console.log(" result:", result);
+  // Create the response object
+  const response = new ApiResponse(
+    200,
+    {
+      users: result.docs,
+      totalUsers: result.totalDocs,
+      totalPages: result.totalPages,
+      currentPage: result.page,
+      hasNextPage: result.hasNextPage,
+      hasPrevPage: result.hasPrevPage,
+    },
+    "Users found"
+  );
+  // Cache the response
+  await setCache(req, response, cacheKey);
+  return res.status(200).json(response);
+});
+
+// Delete many users
+const deleteManyUsers = asyncHandler(async (req, res) => {
+  const { userIds } = req.body;
+  if (!Array.isArray(userIds) || userIds.length === 0) {
+    throw new ApiError(400, "Please provide user ids to delete");
+  }
+
+  // check if all user ids are valid
+  const validIds = userIds.filter((id) => isValidObjectId(id));
+  if (validIds.length !== userIds.length) {
+    throw new ApiError(400, "Invalid user ids provided");
+  }
+
+  // delete users
+  const result = await User.deleteMany({ _id: { $in: userIds } });
+  console.log(" result:", result);
+  if (result.deletedCount === 0) {
+    throw new ApiError(500, "Failed to delete users");
+  }
+  await revalidateRelatedCaches(req, "all-users");
+  // revalidate all users cache
+  return res.status(200).json(new ApiResponse(200, {}, "Users deleted"));
 });
 
 // update account  details
@@ -611,17 +749,17 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
     },
     {
       $lookup: {
-        from: "videos",
+        from: "users",
         localField: "_id",
         foreignField: "owner",
-        as: "videos",
+        as: "users",
       },
     },
     // calculate likes
     {
       $lookup: {
         from: "likes",
-        localField: "videos._id",
+        localField: "users._id",
         foreignField: "video",
         as: "likes",
       },
@@ -630,7 +768,7 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
     {
       $lookup: {
         from: "dislikes",
-        localField: "videos._id",
+        localField: "users._id",
         foreignField: "video",
         as: "dislikes",
       },
@@ -638,11 +776,11 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
     {
       $addFields: {
         subscribersCount: { $size: "$subscribers" },
-        videosCount: {
-          $size: "$videos",
+        usersCount: {
+          $size: "$users",
         },
         viewsCount: {
-          $sum: "$videos.views",
+          $sum: "$users.views",
         },
         likesCount: { $size: "$likes" },
         dislikesCount: { $size: "$dislikes" },
@@ -650,7 +788,7 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
     },
     {
       $project: {
-        videosCount: 1,
+        usersCount: 1,
         subscribersCount: 1,
         viewsCount: 1,
         likesCount: 1,
@@ -711,7 +849,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
               $expr: {
                 $and: [
                   {
-                    $in: ["$$videoId", "$videos.video"],
+                    $in: ["$$videoId", "$users.video"],
                   },
                   {
                     $eq: ["$$userId", "$user"],
@@ -726,7 +864,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
 
     {
       $lookup: {
-        from: "videos",
+        from: "users",
         localField: "watchHistory.videoId",
         foreignField: "_id",
         as: "videoDetails",
@@ -794,7 +932,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
             date: "$watchHistory.createdAt", // Use the createdAt field from watchHistory
           },
         },
-        videos: { $push: "$watchHistory" }, // Push all watchHistory objects for the group
+        users: { $push: "$watchHistory" }, // Push all watchHistory objects for the group
       },
     },
     {
@@ -803,7 +941,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
   ]);
   if (q) {
     const isSearchMatched = result?.some((item) =>
-      item?.videos?.some((v) => v?.video?._id)
+      item?.users?.some((v) => v?.video?._id)
     );
     if (!isSearchMatched) {
       result = [];
@@ -885,6 +1023,7 @@ const deleteVideoFromWatchHistory = asyncHandler(async (req, res) => {
 export {
   changeCurrentPassword,
   clearWatchHistory,
+  deleteManyUsers,
   deleteVideoFromWatchHistory,
   forgotPassword,
   getAllUsers,

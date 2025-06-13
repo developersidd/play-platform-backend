@@ -3,6 +3,7 @@ import rateLimit from "express-rate-limit";
 import {
   changeCurrentPassword,
   clearWatchHistory,
+  deleteManyUsers,
   deleteVideoFromWatchHistory,
   forgotPassword,
   getAllUsers,
@@ -22,7 +23,10 @@ import {
   updateCoverImage,
   verifyEmail,
 } from "../controllers/user.controller.js";
-import verifyJWT from "../middlewares/auth.middleware.js";
+import {
+  verifyAuthorization,
+  verifyJWT,
+} from "../middlewares/auth.middleware.js";
 import upload from "../middlewares/multer.middleware.js";
 
 const router = Router();
@@ -46,44 +50,51 @@ router.post(
 // login route
 router.post("/login", appLimiter, loginUser);
 // get all users
-router.get("/user-list", getAllUsers);
+router.get("/all", verifyJWT, verifyAuthorization("ADMIN"), getAllUsers);
+// delete many users
+router.delete("/", verifyJWT, verifyAuthorization("ADMIN"), deleteManyUsers);
+
 // logout route
-router.route("/logout").post(verifyJWT, logoutUser);
+router.post("/logout", verifyJWT, logoutUser);
 // refresh token route
-router.route("/refresh-token").post(refreshAccessToken);
+router.post("/refresh-token", refreshAccessToken);
 // get watch history
-router.route("/history").get(verifyJWT, getWatchHistory);
+router.get("/history", verifyJWT, getWatchHistory);
 
 // clear watch history
-router.route("/history/clear").delete(verifyJWT, clearWatchHistory);
+router.delete("/history/clear", verifyJWT, clearWatchHistory);
 
 // pause watch history
-router.route("/history/toggle-pause").patch(verifyJWT, toggleHistoryPauseState);
+router.patch("/history/toggle-pause", verifyJWT, toggleHistoryPauseState);
 
 // delete video from watch history
-router
-  .route("/history/remove/:videoId")
-  .delete(verifyJWT, deleteVideoFromWatchHistory);
+router.delete(
+  "/history/remove/:videoId",
+  verifyJWT,
+  deleteVideoFromWatchHistory
+);
 
-  
-  // get user channel stats
-  router.route("/profile/stats").get(verifyJWT, getUserChannelStats);
+// get user channel stats
+router.get("/profile/stats", verifyJWT, getUserChannelStats);
 
 // get user channel profile
-router.route("/c/:username").get(getUserChannelProfile);
+router.get("/c/:username", getUserChannelProfile);
 
 // change password route
-router.route("/change-password").post(verifyJWT, changeCurrentPassword);
+router.post("/change-password", verifyJWT, changeCurrentPassword);
 // get current user
-router.route("/current-user").get(verifyJWT, getCurrentUser);
+router.get("/current-user", verifyJWT, getCurrentUser);
 // update account details
-router.route("/update-account").patch(verifyJWT, updateAccountDetails);
+router.patch("/update-account", verifyJWT, updateAccountDetails);
 // update avatar
-router.route("/avatar").patch(verifyJWT, upload.single("avatar"), updateAvatar);
+router.patch("/avatar", verifyJWT, upload.single("avatar"), updateAvatar);
 // update cover image
-router
-  .route("/cover-image")
-  .patch(verifyJWT, upload.single("coverImage"), updateCoverImage);
+router.patch(
+  "/cover-image",
+  verifyJWT,
+  upload.single("coverImage"),
+  updateCoverImage
+);
 // forgot password
 router.post("/forgot-password", forgotPassword);
 // reset password

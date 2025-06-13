@@ -6,7 +6,7 @@ import {
   getLoginHistory,
   hasLoginHistory,
 } from "../controllers/loginHistory.controller.js";
-import verifyJWT from "../middlewares/auth.middleware.js";
+import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 router.use(verifyJWT);
