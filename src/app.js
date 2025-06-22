@@ -126,6 +126,12 @@ app.use(cookieParser());
 
 app.use(requestIp.mw());
 // routes
+app.get("/", (req, res) => {
+  res.status(200).json({
+    message: "Welcome to the Play platform API",
+    version: "1.0.0",
+  });
+});
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/videos", videoRouter);
 app.use("/api/v1/likes", likeRouter);
