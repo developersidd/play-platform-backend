@@ -1,5 +1,8 @@
 import { isValidObjectId } from "mongoose";
-import { addToWatchHistory } from "../helpers/video.helper.js";
+import {
+  addToWatchHistory,
+  cleanUpReferences,
+} from "../helpers/video.helper.js";
 import Like from "../models/like.model.js";
 import NotificationModel from "../models/notification.model.js";
 import Subscription from "../models/subscription.model.js";
@@ -30,7 +33,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
     q = "",
     username,
     expandQuery = false,
-    status = "published",
+    status = "all",
   } = req.query;
 
   const searchQuery = {};
@@ -52,6 +55,10 @@ const getAllVideos = asyncHandler(async (req, res) => {
             .filter(Boolean),
         },
       },
+      // also add _id search
+      {
+        _id: isValidObjectId(decodedQ) ? createMongoId(decodedQ) : null,
+      },
     ];
   }
 
@@ -70,9 +77,10 @@ const getAllVideos = asyncHandler(async (req, res) => {
   // Check cache
   const cacheKey = generateCacheKey("all-videos", req.query);
   const cachedRes = await checkCache(req, cacheKey);
-  if (cachedRes) {
+   if (cachedRes) {
     return res.status(200).json(cachedRes);
-  }
+   }
+  
 
   // if expandQuery is true, then we will add likes and dislikes count to the query
   let expandQueryAggregation = [];
@@ -385,7 +393,9 @@ const publishVideo = asyncHandler(async (req, res) => {
   if (!thumbnail?.public_id) {
     throw new ApiError(500, "Failed to upload thumbnail file");
   }
-
+  const tagsArr = tags
+    ? tags.split(",").filter((tag) => tag.trim()?.length > 0)
+    : [];
   const duration = formatDuration(videoFile.duration);
   const video = await Video.create({
     title,
@@ -398,7 +408,7 @@ const publishVideo = asyncHandler(async (req, res) => {
       url: thumbnail.secure_url,
       public_id: thumbnail.public_id,
     },
-    tags,
+    tags: tagsArr,
     duration,
     owner: req.user._id,
   });
@@ -487,13 +497,16 @@ const deleteManyVideos = asyncHandler(async (req, res) => {
 
   // delete videos
   const result = await Video.deleteMany({ _id: { $in: videoIds } });
-  console.log(" result:", result);
   if (result.deletedCount === 0) {
     throw new ApiError(500, "Failed to delete videos");
   }
   await revalidateRelatedCaches(req, "all-videos");
   // revalidate all videos cache
-  return res.status(200).json(new ApiResponse(200, {}, "Videos deleted"));
+  res.status(200).json(new ApiResponse(200, {}, "Videos deleted"));
+  res.on("finish", async () => {
+    console.log("Cleaning up started ");
+    await cleanUpReferences(videoIds);
+  });
 });
 
 // update video publish status

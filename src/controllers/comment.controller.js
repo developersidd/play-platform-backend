@@ -27,10 +27,10 @@ const getVideoComments = asyncHandler(async (req, res) => {
   }
 
   const cachedData = await checkCache(req, cacheKey);
-  // if (cachedData) {
-  //  return res.status(200).json(cachedData);
-  // }
-  //
+   if (cachedData) {
+    return res.status(200).json(cachedData);
+   }
+  
   // search & sort query
   const searchQuery = { video: createMongoId(videoId) };
   // sort query
@@ -99,7 +99,6 @@ const getVideoComments = asyncHandler(async (req, res) => {
 });
 
 const addComment = asyncHandler(async (req, res) => {
-  // TODO: add a comment to a video
   const { videoId } = req.params;
   const { content } = req.body;
   const { redisClient } = req.app.locals || {};
@@ -121,7 +120,6 @@ const addComment = asyncHandler(async (req, res) => {
 });
 
 const updateComment = asyncHandler(async (req, res) => {
-  // TODO: update a comment
   const { commentId } = req.params;
   // throw new ApiError(501, "Not implemented");
   const { redisClient } = req.app.locals || {};
@@ -146,7 +144,6 @@ const updateComment = asyncHandler(async (req, res) => {
 });
 
 const deleteComment = asyncHandler(async (req, res) => {
-  // TODO: delete a comment
   // throw new ApiError(501, "Not implemented");
   const { commentId } = req.params;
   const { redisClient } = req.app.locals || {};

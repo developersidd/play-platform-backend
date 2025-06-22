@@ -187,8 +187,10 @@ const loginUser = asyncHandler(async (req, res) => {
 
 // logout user
 const logoutUser = asyncHandler(async (req, res) => {
+  const userId = req?.user?._id;
+  const loggedInHistoryId = req?.user?.loginHistoryId;
   await User.findByIdAndUpdate(
-    req?.user?._id,
+    userId,
     {
       $unset: { refreshToken: 1 }, // this removes the field from document
     },
@@ -196,11 +198,18 @@ const logoutUser = asyncHandler(async (req, res) => {
       new: true,
     }
   );
-  await LoginHistory.findByIdAndUpdate(req.user?.loginHistoryId, {
-    $set: {
-      token: null,
+  const ss = await LoginHistory.findByIdAndUpdate(
+    loggedInHistoryId,
+    {
+      $set: {
+        token: null,
+      },
     },
-  });
+    {
+      new: true,
+    }
+  );
+  console.log(" ss:", ss);
   console.log("req.user:", req.user);
   // clear the cookies
   return res
@@ -653,9 +662,19 @@ const updateCoverImage = asyncHandler(async (req, res) => {
 const getUserChannelProfile = asyncHandler(async (req, res) => {
   const { username } = req.params || {};
   const loggedInUserId = createMongoId(req?.query?.loggedInUserId);
+  const cacheKey = generateCacheKey(
+    "user-channel-profile",
+    username,
+    loggedInUserId
+  );
+  const cachedResponse = await checkCache(req, cacheKey);
   if (!username?.trim()) {
     throw new ApiError(400, "Please provide username");
   }
+  if (cachedResponse) {
+    return res.status(200).json(cachedResponse);
+  }
+  
   const channel = await User.aggregate([
     {
       $match: {
@@ -716,10 +735,8 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Channel does not exist");
   }
   // cache the response
-  const { redisClient } = req.app.locals || {};
   const response = new ApiResponse(200, channel[0], "Channel profile found");
-  // console.log("channel[0]:", channel[0])
-  // redisClient.setEx(req.originalUrl, 3600, JSON.stringify(response));
+  await setCache(req, response, cacheKey);
   return res.status(200).json(response);
 });
 
@@ -835,37 +852,11 @@ const getWatchHistory = asyncHandler(async (req, res) => {
     {
       $unwind: "$watchHistory", // Flatten watchHistory array
     },
-    {
-      $lookup: {
-        from: "watchlaters",
-        let: {
-          videoId: "$watchHistory.videoId",
-          userId,
-        },
-        as: "watchLaterCheck",
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  {
-                    $in: ["$$videoId", "$users.video"],
-                  },
-                  {
-                    $eq: ["$$userId", "$user"],
-                  },
-                ],
-              },
-            },
-          },
-        ],
-      },
-    },
 
     {
       $lookup: {
-        from: "users",
-        localField: "watchHistory.videoId",
+        from: "videos",
+        localField: "watchHistory.video",
         foreignField: "_id",
         as: "videoDetails",
         pipeline: [
@@ -918,13 +909,6 @@ const getWatchHistory = asyncHandler(async (req, res) => {
       },
     },
     {
-      $addFields: {
-        "watchHistory.video.isInWatchLater": {
-          $gt: [{ $size: "$watchLaterCheck" }, 0],
-        },
-      },
-    },
-    {
       $group: {
         _id: {
           $dateToString: {
@@ -932,7 +916,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
             date: "$watchHistory.createdAt", // Use the createdAt field from watchHistory
           },
         },
-        users: { $push: "$watchHistory" }, // Push all watchHistory objects for the group
+        videos: { $push: "$watchHistory" }, // Push all watchHistory objects for the group
       },
     },
     {
@@ -941,7 +925,7 @@ const getWatchHistory = asyncHandler(async (req, res) => {
   ]);
   if (q) {
     const isSearchMatched = result?.some((item) =>
-      item?.users?.some((v) => v?.video?._id)
+      item?.videos?.some((v) => v?.video?._id)
     );
     if (!isSearchMatched) {
       result = [];
@@ -1004,7 +988,7 @@ const deleteVideoFromWatchHistory = asyncHandler(async (req, res) => {
     {
       $pull: {
         watchHistory: {
-          videoId,
+          video: videoId,
         },
       },
     },

@@ -22,5 +22,5 @@ const dislikeSchema = new Schema(
   },
   { timestamps: true }
 );
-const disLike = model("disLike", dislikeSchema);
-export default disLike;
+const DisLike = model("DisLike", dislikeSchema);
+export default DisLike;

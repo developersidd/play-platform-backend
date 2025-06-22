@@ -85,7 +85,7 @@ const toggleTweetDisLike = asyncHandler(async (req, res) => {
     await DisLike.findByIdAndDelete(existingDisLike._id);
     return res.status(200).json(new ApiResponse(200, {}, "Disdisliked"));
   }
-  const tweetDisLike = await disLike.create({
+  const tweetDisLike = await DisLike.create({
     tweet: tweetId,
     dislikedBy: req.user._id,
   });

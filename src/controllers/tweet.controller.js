@@ -45,10 +45,9 @@ const getUserTweets = asyncHandler(async (req, res) => {
   // check if the user tweets are cached
   const cacheKey = generateCacheKey("user-tweets", user._id);
   const cachedTweets = await checkCache(req, cacheKey);
-  await revalidateCache(req, cacheKey);
-  /* if (cachedTweets) {
+   if (cachedTweets) {
     return res.status(200).json(cachedTweets);
-  } */
+  } 
 
   const mongoUserId = createMongoId(user?._id);
   const tweets = await Tweet.aggregate([

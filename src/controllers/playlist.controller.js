@@ -95,43 +95,53 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
         type: "playlist",
       },
     },
-    // Lookup to populate only the first video
-    {
-      $lookup: {
-        from: "videos",
-        localField: "videos.video",
-        foreignField: "_id",
-        as: "populatedVideos",
-
-        pipeline: [
-          { $limit: 1 },
-          {
-            $project: {
-              thumbnail: 1,
-              title: 1,
-              views: 1,
-              duration: 1,
-              createdAt: 1,
-            },
-          },
-        ], // Populate only the first video
+    // Get the first video ID
+      {
+        $addFields: {
+          firstVideoId: { $arrayElemAt: ["$videos.video", 0] },
+        },
       },
-    },
 
-    // Replace the first video in the videos array with the populated one
-    {
-      $addFields: {
-        videos: {
-          $concatArrays: [
-            { $slice: ["$populatedVideos", 1] }, // Replace the first video ID with the populated video
-            { $slice: ["$videos", 1, { $size: "$videos" }] }, // Retain the rest of the video IDs
+      // Lookup only that first video
+      {
+        $lookup: {
+          from: "videos",
+          localField: "firstVideoId",
+          foreignField: "_id",
+          as: "firstVideo",
+          pipeline: [
+            {
+              $project: {
+                thumbnail: 1,
+                title: 1,
+                views: 1,
+                duration: 1,
+                createdAt: 1,
+              },
+            },
           ],
         },
       },
-    },
 
-    // Remove the temporary populatedVideos array
-    { $project: { populatedVideos: 0 } },
+      // Replace the first item in videos array with the populated version
+      {
+        $addFields: {
+          videos: {
+            $concatArrays: [
+              "$firstVideo", // populated
+              { $slice: ["$videos", 1, { $size: "$videos" }] }, // rest of raw ones
+            ],
+          },
+        },
+      },
+
+      // Clean up
+      {
+        $project: {
+          firstVideoId: 0,
+          firstVideo: 0,
+        },
+      },
   ]);
 
   // cache the response
@@ -148,12 +158,11 @@ const getUserCollections = asyncHandler(async (req, res) => {
   // cache key
   const cacheKey = generateCacheKey("user-collection", userId, req.query);
   // check cache
-  await revalidateCache(req, cacheKey);
   const cachedData = await checkCache(req, cacheKey);
-  // if (cachedData) {
-  //  return res.status(200).json(cachedData);
-  // }
-  //
+   if (cachedData) {
+    return res.status(200).json(cachedData);
+   }
+  
 
   let result;
   if (!expand) {

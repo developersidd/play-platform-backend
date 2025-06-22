@@ -69,7 +69,7 @@ const userSchema = new mongoose.Schema(
     },
     watchHistory: [
       {
-        videoId: {
+        video: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "Video",
         },

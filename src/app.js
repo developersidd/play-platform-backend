@@ -74,6 +74,7 @@ io.use((socket, next) => {
   // Verify JWT (example using jsonwebtoken)
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
     if (err) return next(new Error("Unauthorized"));
+    // eslint-disable-next-line no-param-reassign
     socket.user = decoded;
     next();
   });
@@ -82,7 +83,6 @@ io.use((socket, next) => {
 // Handle connections
 io.on("connection", (socket) => {
   // Every browser who visits the site will be connected to the socket.io server
-
   // By default every single user in socket io has their own room
 
   // Every socket is in a room that is the same as their socket id
@@ -102,10 +102,8 @@ io.on("connection", (socket) => {
     }
   }
   // When you disconnect, all of the messages that you send and once you reconnect, you will receive all of the messages that you missed. if you want to avoid this, you can use .volatile.emit() to forget the messages that you missed while you were disconnected.
-
   socket.on("disconnect", (reason) => {
-    // console.log(" reason:", reason);
-    console.log("Disconnected:", socket.id);
+    console.log("Disconnected:", socket.id, reason);
   });
 });
 
@@ -139,7 +137,7 @@ app.use("/api/v1/subscriptions", subscriptionRouter);
 app.use("/api/v1/notifications", notificationRouter);
 app.use("/api/v1/watch-later", watchLaterRouter);
 app.use("/api/v1/login-history", loginHistoryRouter);
-app.use("/healthcheck", healthcheckRouter);
+app.use("/api/v1/healthcheck", healthcheckRouter);
 // 404 Error Handler
 app.use((req, res, next) => {
   const error = new ApiError(404, "Page Not Found");
@@ -147,7 +145,7 @@ app.use((req, res, next) => {
 });
 
 // Global Error Handler
-app.use((err, req, res, next) => {
+app.use((err, req, res) => {
   const statusCode = err.statusCode || 500;
   const message = err.message || "Something went wrong";
 
