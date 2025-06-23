@@ -24,7 +24,7 @@ import {
 import { createHistory } from "./loginHistory.controller.js";
 
 const cookieOptions = {
-  httpOnly: true,
+  // httpOnly: true,
   // secure: true,
 };
 
@@ -674,7 +674,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
   if (cachedResponse) {
     return res.status(200).json(cachedResponse);
   }
-  
+
   const channel = await User.aggregate([
     {
       $match: {

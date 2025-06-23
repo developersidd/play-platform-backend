@@ -28,10 +28,10 @@ const revalidateCache = async (req, cacheKey) => {
 };
 
 // revalidate related caches
-const revalidateRelatedCaches = async (req, prefixKey) => {
+const revalidateRelatedCaches = async (req, prefixKey, ...props) => {
   const { redisClient } = req.app.locals || {};
   // Delete all related cache keys
-  const videoCachePattern = `app:${prefixKey}:*`;
+  const videoCachePattern = `app:${prefixKey}:${JSON.stringify(...props)}:*`;
   const keys = await redisClient.keys(videoCachePattern);
   // console.log("rvlad keys:", keys);
   if (keys.length > 0) {

@@ -67,7 +67,7 @@ const createPlaylist = asyncHandler(async (req, res) => {
 // get all playlists of a user
 const getUserPlaylists = asyncHandler(async (req, res) => {
   const { username = "" } = req.params || {};
-  const { isPrivate = false } = req.query || {};
+  const { isPrivate = null } = req.query || {};
   console.log("req", req.params, req.query);
   if (!username) {
     throw new ApiError(400, "Invalid User Name");
@@ -96,52 +96,52 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
       },
     },
     // Get the first video ID
-      {
-        $addFields: {
-          firstVideoId: { $arrayElemAt: ["$videos.video", 0] },
-        },
+    {
+      $addFields: {
+        firstVideoId: { $arrayElemAt: ["$videos.video", 0] },
       },
+    },
 
-      // Lookup only that first video
-      {
-        $lookup: {
-          from: "videos",
-          localField: "firstVideoId",
-          foreignField: "_id",
-          as: "firstVideo",
-          pipeline: [
-            {
-              $project: {
-                thumbnail: 1,
-                title: 1,
-                views: 1,
-                duration: 1,
-                createdAt: 1,
-              },
+    // Lookup only that first video
+    {
+      $lookup: {
+        from: "videos",
+        localField: "firstVideoId",
+        foreignField: "_id",
+        as: "firstVideo",
+        pipeline: [
+          {
+            $project: {
+              thumbnail: 1,
+              title: 1,
+              views: 1,
+              duration: 1,
+              createdAt: 1,
             },
+          },
+        ],
+      },
+    },
+
+    // Replace the first item in videos array with the populated version
+    {
+      $addFields: {
+        videos: {
+          $concatArrays: [
+            "$firstVideo", // populated
+            { $slice: ["$videos", 1, { $size: "$videos" }] }, // rest of raw ones
           ],
         },
       },
+    },
 
-      // Replace the first item in videos array with the populated version
-      {
-        $addFields: {
-          videos: {
-            $concatArrays: [
-              "$firstVideo", // populated
-              { $slice: ["$videos", 1, { $size: "$videos" }] }, // rest of raw ones
-            ],
-          },
-        },
+    // Clean up
+    {
+      $project: {
+        firstVideoId: 0,
+        firstVideo: 0,
       },
-
-      // Clean up
-      {
-        $project: {
-          firstVideoId: 0,
-          firstVideo: 0,
-        },
-      },
+    },
   ]);
 
   // cache the response
@@ -159,10 +159,9 @@ const getUserCollections = asyncHandler(async (req, res) => {
   const cacheKey = generateCacheKey("user-collection", userId, req.query);
   // check cache
   const cachedData = await checkCache(req, cacheKey);
-   if (cachedData) {
+  if (cachedData) {
     return res.status(200).json(cachedData);
-   }
-  
+  }
 
   let result;
   if (!expand) {
@@ -257,10 +256,10 @@ const getPlaylistById = asyncHandler(async (req, res) => {
   const cacheKey = generateCacheKey("playlist", playlistId);
   // check cache
   const cachedData = await checkCache(req, cacheKey);
-   await revalidateCache(req, cacheKey);
-   if (cachedData) {
+  await revalidateCache(req, cacheKey);
+  if (cachedData) {
     return res.status(200).json(cachedData);
-   }
+  }
   const playlist = await Playlist.findById(playlistId)
     .populate({
       path: "owner",
