@@ -25,7 +25,8 @@ import { createHistory } from "./loginHistory.controller.js";
 
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production", 
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "none",
 };
 
 const registerUser = asyncHandler(async (req, res) => {
@@ -674,7 +675,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
   if (cachedResponse) {
     return res.status(200).json(cachedResponse);
   }
-  
+
   const channel = await User.aggregate([
     {
       $match: {

@@ -119,13 +119,7 @@ app.use(express.static("public"));
 app.use(
   cors({
     credentials: true,
-    origin:
-      process.env.NODE_ENV === "development"
-        ? [
-            "http://localhost:3000",
-            "http://192.168.10.101:3000",
-          ]
-        : process.env.CORS_ORIGIN,
+    origin: process.env.CORS_ORIGIN,
   })
 );
 app.use(cookieParser());
