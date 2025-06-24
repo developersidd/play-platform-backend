@@ -119,7 +119,13 @@ app.use(express.static("public"));
 app.use(
   cors({
     credentials: true,
-    origin: ["http://localhost:3000", "http://192.168.10.101:3000"],
+    origin:
+      process.env.NODE_ENV === "development"
+        ? [
+            "http://localhost:3000",
+            "http://192.168.10.101:3000",
+          ]
+        : process.env.CORS_ORIGIN,
   })
 );
 app.use(cookieParser());
@@ -151,7 +157,8 @@ app.use((req, res, next) => {
 });
 
 // Global Error Handler
-app.use((err, req, res) => {
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   const message = err.message || "Something went wrong";
 
