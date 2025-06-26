@@ -746,6 +746,7 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
   const userId = createMongoId(req?.user?._id);
   const cacheKey = generateCacheKey("user-profile-stats", userId);
   const cachedResponse = await checkCache(req, cacheKey);
+  await revalidateCache(req, cacheKey);
   if (cachedResponse) {
     console.log("Cache hit for user profile stats");
     return res.status(200).json(cachedResponse);
@@ -767,17 +768,17 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
     },
     {
       $lookup: {
-        from: "users",
+        from: "videos",
         localField: "_id",
         foreignField: "owner",
-        as: "users",
+        as: "videos",
       },
     },
     // calculate likes
     {
       $lookup: {
         from: "likes",
-        localField: "users._id",
+        localField: "videos._id",
         foreignField: "video",
         as: "likes",
       },
@@ -786,7 +787,7 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
     {
       $lookup: {
         from: "dislikes",
-        localField: "users._id",
+        localField: "videos._id",
         foreignField: "video",
         as: "dislikes",
       },
@@ -794,11 +795,11 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
     {
       $addFields: {
         subscribersCount: { $size: "$subscribers" },
-        usersCount: {
-          $size: "$users",
+        videosCount: {
+          $size: "$videos",
         },
         viewsCount: {
-          $sum: "$users.views",
+          $sum: "$videos.views",
         },
         likesCount: { $size: "$likes" },
         dislikesCount: { $size: "$dislikes" },
@@ -806,7 +807,7 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
     },
     {
       $project: {
-        usersCount: 1,
+        videosCount: 1,
         subscribersCount: 1,
         viewsCount: 1,
         likesCount: 1,
