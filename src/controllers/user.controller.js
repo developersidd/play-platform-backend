@@ -27,8 +27,7 @@ const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: "none",
-  // do i need to set domain here?
-  domain: process.env.SITE_URL?.replace("https://", "") || "localhost", 
+  domain: "play-platform.vercel.app",
 };
 
 const registerUser = asyncHandler(async (req, res) => {
