@@ -4,7 +4,7 @@ import LoginHistory from "../models/loginHistory.model.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 
-const createHistory = asyncHandler(async (req, res, { token, userId }) => {
+const createHistory = async (req, res, { token, userId }) => {
   // Login History
   const detector = new DeviceDetector({
     deviceAliasCode: true,
@@ -44,11 +44,11 @@ const createHistory = asyncHandler(async (req, res, { token, userId }) => {
   );
   console.log("loginHistory:", loginHistory);
   return loginHistory;
-});
+}
 
 // check if the user has login history using the access token getting from params request
 
-const hasLoginHistory = asyncHandler(async (req, res) => {
+const hasLoginHistory = (async (req, res) => {
   const accessToken =
     req?.cookies?.accessToken ||
     req.header("Authorization")?.replace("Bearer ", "");

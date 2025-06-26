@@ -27,7 +27,6 @@ const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: "none",
-  //domain: ".play-platform.vercel.app",
 };
 
 const registerUser = asyncHandler(async (req, res) => {
