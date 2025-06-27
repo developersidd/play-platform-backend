@@ -109,7 +109,6 @@ io.on("connection", (socket) => {
 
 // Attach io instance to Express app
 app.set("io", io);
-app.set("trust proxy", 1);
 // Middlewares
 app.use(express.json({ limit: "20kb" }));
 // for parsing application/x-www-form-urlencoded data from the client side form submission (e.g., login form) and extended: true allows for nested objects in the form data
