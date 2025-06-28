@@ -26,10 +26,9 @@ import { createHistory } from "./loginHistory.controller.js";
 const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "none",
-  path: "/",
+  //sameSite: "none",
+  //path: "/",
   maxAge: 24 * 60 * 60 * 1000,
-  domain: ".play-platform.vercel.app",
 };
 
 const registerUser = asyncHandler(async (req, res) => {
