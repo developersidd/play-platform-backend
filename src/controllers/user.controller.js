@@ -24,7 +24,7 @@ import {
 import { createHistory } from "./loginHistory.controller.js";
 
 const cookieOptions = {
-  httpOnly: true,
+  httpOnly: false,
   secure: process.env.NODE_ENV === "production",
    sameSite: "none",
    path: "/",
