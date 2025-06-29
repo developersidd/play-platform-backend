@@ -23,13 +23,6 @@ import {
 } from "../utils/redis.util.js";
 import { createHistory } from "./loginHistory.controller.js";
 
-const cookieOptions = {
-  httpOnly: false,
-  secure: process.env.NODE_ENV === "production",
-   sameSite: "none",
-   path: "/",
-  maxAge: 24 * 60 * 60 * 1000,
-};
 
 const registerUser = asyncHandler(async (req, res) => {
   const { username, fullName, email, password } = req.body || {};
@@ -177,8 +170,6 @@ const loginUser = asyncHandler(async (req, res) => {
   });
   return res
     .status(200)
-    .cookie("accessToken", accessToken, cookieOptions)
-    .cookie("refreshToken", refreshToken, cookieOptions)
     .json(
       new ApiResponse(
         200,
@@ -217,8 +208,6 @@ const logoutUser = asyncHandler(async (req, res) => {
   // clear the cookies
   return res
     .status(200)
-    .clearCookie("accessToken", cookieOptions)
-    .clearCookie("refreshToken", cookieOptions)
     .json(new ApiResponse(200, {}, "User logged out successfully"));
 });
 
@@ -301,8 +290,6 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   console.log("new accessToken:", accessToken);
   return res
     .status(200)
-    .cookie("accessToken", accessToken, cookieOptions)
-    .cookie("refreshToken", refreshToken, cookieOptions)
     .json(
       new ApiResponse(
         200,

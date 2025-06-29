@@ -118,7 +118,7 @@ app.use(express.static("public"));
 app.use(
   cors({
     credentials: true,
-    origin: process.env.CORS_ORIGIN,
+    origin: "http://192.168.10.101:3000",
   })
 );
 app.use(cookieParser());

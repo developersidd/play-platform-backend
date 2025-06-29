@@ -6,6 +6,10 @@ import asyncHandler from "../utils/asyncHandler.js";
 
 const verifyJWT = asyncHandler(async (req, _, next) => {
   try {
+    
+    console.log("req", req);
+    console.log(" req?.cookies:", req?.cookies)
+    console.count(" req?.cookies?.accessToken:", req?.cookies?.accessToken)
     const accessToken =
       req?.cookies?.accessToken ||
       req.header("Authorization")?.replace("Bearer ", "");
@@ -44,7 +48,6 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
     throw new ApiError(401, error?.message || "Invalid Access Token");
   }
 });
-
 // verify authorization roles
 const verifyAuthorization =
   (...roles) =>
