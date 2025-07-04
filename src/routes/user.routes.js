@@ -78,7 +78,7 @@ router.delete(
 router.get("/profile/stats", verifyJWT, getUserChannelStats);
 
 // get user channel profile
-router.get("/c/:username", verifyJWT, getUserChannelProfile);
+router.get("/c/:username", getUserChannelProfile);
 
 // change password route
 router.post("/change-password", verifyJWT, changeCurrentPassword);

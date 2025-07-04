@@ -6,6 +6,7 @@ import asyncHandler from "../utils/asyncHandler.js";
 
 const createHistory = async (req, res, { token, userId }) => {
   // Login History
+  console.log("Creating login history for user:", token);
   const detector = new DeviceDetector({
     deviceAliasCode: true,
     deviceInfo: true,
@@ -32,7 +33,7 @@ const createHistory = async (req, res, { token, userId }) => {
     {
       user: userId,
       ip,
-      time: new Date().toISOString(),
+      time: new Date(),
       token,
       deviceInfo,
       userAgent,

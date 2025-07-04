@@ -23,7 +23,6 @@ import {
 } from "../utils/redis.util.js";
 import { createHistory } from "./loginHistory.controller.js";
 
-
 const registerUser = asyncHandler(async (req, res) => {
   const { username, fullName, email, password } = req.body || {};
   // check if all required fields are provided
@@ -156,6 +155,7 @@ const loginUser = asyncHandler(async (req, res) => {
   const { accessToken, refreshToken } = await generateAuthTokens(user?._id);
 
   user.refreshToken = refreshToken;
+
   await user.save({
     validateBeforeSave: false,
   });
@@ -192,7 +192,7 @@ const logoutUser = asyncHandler(async (req, res) => {
       new: true,
     }
   );
-  const ss = await LoginHistory.findByIdAndUpdate(
+  await LoginHistory.findByIdAndUpdate(
     loggedInHistoryId,
     {
       $set: {
@@ -203,7 +203,6 @@ const logoutUser = asyncHandler(async (req, res) => {
       new: true,
     }
   );
-  console.log(" ss:", ss);
   console.log("req.user:", req.user);
   // clear the cookies
   return res
@@ -266,6 +265,8 @@ const verifyEmail = asyncHandler(async (req, res) => {
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
     req.cookies?.refreshToken || req.body?.refreshToken;
+  const incomingAccessToken = req.cookies?.accessToken || req.body?.accessToken;
+  console.log(" req.body:", req.body);
   console.log("incomingRefreshToken:", incomingRefreshToken);
   if (!incomingRefreshToken) {
     throw new ApiError(401, "Unauthorized request");
@@ -277,10 +278,11 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   );
 
   const user = await User.findById(decodedToken?._id);
-  console.log("user from rat:", user);
+  // console.log("user from rat:", user);
   if (!user) {
     throw new ApiError(401, "Invalid refresh token");
   }
+  console.log(" user?.refreshToken:", user?.refreshToken);
   if (user?.refreshToken !== incomingRefreshToken) {
     throw new ApiError(401, "Refresh token in expired or used");
   }
@@ -288,6 +290,26 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   const { accessToken, refreshToken } =
     (await generateAuthTokens(user?._id)) || {};
   console.log("new accessToken:", accessToken);
+  // update login history with new access token
+  const loginHistory = await LoginHistory.findOneAndUpdate(
+    {
+      user: user?._id,
+      token: incomingAccessToken,
+    },
+    {
+      $set: {
+        token: accessToken,
+      },
+    },
+    {
+      new: true,
+    }
+  );
+  user.refreshToken = refreshToken;
+  await user.save({
+    validateBeforeSave: false,
+  });
+  console.log(" loginHistory in refreshToken:", loginHistory);
   return res
     .status(200)
     .json(
@@ -1016,6 +1038,5 @@ export {
   updateAccountDetails,
   updateAvatar,
   updateCoverImage,
-  verifyEmail
+  verifyEmail,
 };
-
