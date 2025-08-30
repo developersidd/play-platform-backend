@@ -4,7 +4,7 @@ import Video from "../models/video.model.js";
 const generateCacheKey = (resource, ...props) =>
   `app:${resource}:${JSON.stringify(...props)}`;
 
-// check cache 
+// check cache
 const checkCache = async (req, cacheKey) => {
   const { redisClient } = req.app.locals || {};
   const cachedData = await redisClient.get(cacheKey);
@@ -41,7 +41,7 @@ const revalidateRelatedCaches = async (req, prefixKey, ...props) => {
 };
 
 // Check and add views in Redis
-async function addViewIfNotExists(req, videoId, userIp) {
+async function addViewIfNotExists(req, videoId, userIp, userId) {
   const redisKey = `video:${videoId}:viewedBy:${userIp}`;
   const videoCacheKey = generateCacheKey("video", videoId);
 
@@ -53,8 +53,12 @@ async function addViewIfNotExists(req, videoId, userIp) {
     // Set a key with an expiry of 24 hours (86400 seconds) in Redis
     await setCache(req, true, redisKey, 86400);
 
-    // Increment the view count in MongoDB
-    await Video.findByIdAndUpdate(videoId, { $inc: { views: 1 } });
+    // Add or update the view record
+    await Video.findByIdAndUpdate(
+      videoId,
+      { $set: { video: videoId, user: userId, date: Date.now() } },
+      { upsert: true }
+    );
     await revalidateCache(req, videoCacheKey); // Revalidate the video cache
     return true; // View added
   }
@@ -68,6 +72,5 @@ export {
   generateCacheKey,
   revalidateCache,
   revalidateRelatedCaches,
-  setCache
+  setCache,
 };
-

@@ -44,8 +44,20 @@ const videoSchema = new Schema(
       required: [true, "Duration is required"],
     },
     views: {
-      type: Number,
-      default: 0,
+      type: {
+        video: {
+          type: Schema.ObjectId,
+          ref: "Video",
+        },
+        user: {
+          type: Schema.ObjectId,
+          ref: "User",
+        },
+        date: {
+          type: Date,
+          default: Date.now,
+        },
+      },
     },
     isPublished: {
       type: Boolean,

@@ -5,7 +5,74 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { createMongoId } from "../utils/mongodb.util.js";
-import { checkCache, generateCacheKey, setCache } from "../utils/redis.util.js";
+import { checkCache, generateCacheKey, revalidateCache, setCache } from "../utils/redis.util.js";
+
+// get subscription growth analytics
+const getMonthlySubscriptionGrowth = asyncHandler(async (req, res) => {
+  const channelId = req.user._id;
+  const cacheKey = generateCacheKey("subscription-growth", channelId);
+  // check if cache exists
+  const cachedData = await checkCache(req, cacheKey);
+  await revalidateCache(req, cacheKey);
+  if (cachedData) {
+    return res.status(200).json(cachedData);
+  }
+  const pipeline = [
+    {
+      $match: {
+        channel: createMongoId(channelId),
+        createdAt: {
+          $gte: new Date(new Date().setFullYear(new Date().getFullYear() - 1)),
+        },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          year: { $year: "$createdAt" },
+          month: { $month: "$createdAt" },
+        },
+        subscribers: { $sum: 1 },
+      },
+    },
+    {
+      $sort: {
+        "_id.year": 1,
+        "_id.month": 1,
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        date: {
+          $dateFromParts: {
+            year: "$_id.year",
+            month: "$_id.month",
+            day: 1,
+          },
+        },
+        month: {
+          $dateToString: {
+            format: "%Y-%m",
+            date: {
+              $dateFromParts: {
+                year: "$_id.year",
+                month: "$_id.month",
+              },
+            },
+          },
+        },
+        subscribers: 1,
+      },
+    },
+  ];
+
+  const result = await Subscription.aggregate(pipeline);
+  const response = new ApiResponse(200, result, "Subscription growth data");
+  // cache the response
+  await setCache(req, response, cacheKey);
+  return res.status(200).json(response);
+});
 
 // Toggle subscription for a channel
 const toggleSubscription = asyncHandler(async (req, res) => {
@@ -320,6 +387,7 @@ const checkSubscriptionStatus = asyncHandler(async (req, res) => {
 
 export {
   checkSubscriptionStatus,
+  getMonthlySubscriptionGrowth,
   getSubscribedChannels,
   getUserChannelSubscribers,
   offNotification,

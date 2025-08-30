@@ -146,6 +146,7 @@ userSchema.methods.generateAccessToken = function () {
     }
   );
 };
+
 // create refresh token
 userSchema.methods.generateRefreshToken = function () {
   return jwt.sign(

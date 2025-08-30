@@ -54,7 +54,11 @@ redisClient.on("error", (err) => {
 // Socket.io setup
 const io = new Server(server, {
   cors: {
-    origin: ["https://admin.socket.io", process.env.CORS_ORIGIN],
+    origin: [
+      "https://admin.socket.io",
+      process.env.CORS_ORIGIN,
+      "http://localhost:3000",
+    ],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -118,7 +122,7 @@ app.use(express.static("public"));
 app.use(
   cors({
     credentials: true,
-    origin: process.env.CORS_ORIGIN,
+    origin: [process.env.CORS_ORIGIN, "http://localhost:3000"],
   })
 );
 app.use(cookieParser());
@@ -131,6 +135,7 @@ app.get("/", (req, res) => {
     version: "1.0.0",
   });
 });
+
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/videos", videoRouter);
 app.use("/api/v1/likes", likeRouter);

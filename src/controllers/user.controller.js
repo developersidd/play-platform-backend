@@ -136,7 +136,10 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Please provide all required fields");
   }
   // check email with regEx
-  if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) {
+  if (
+    !username &&
+    !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)
+  ) {
     throw new ApiError(400, "Please provide a valid email address");
   }
   // check if user exists on DB
@@ -168,15 +171,26 @@ const loginUser = asyncHandler(async (req, res) => {
     token: accessToken,
     userId: user?._id,
   });
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        { user, tokens: { accessToken, refreshToken } },
-        "User logged In successfully"
-      )
-    );
+  const response = new ApiResponse(
+    200,
+    { user, tokens: { accessToken, refreshToken } },
+    "User logged In successfully"
+  );
+  // add cookies in dev mode
+  if (process.env.NODE_ENV === "development") {
+    res
+      .cookie("accessToken", accessToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "Strict",
+      })
+      .cookie("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "Strict",
+      });
+  }
+  return res.status(200).json(response);
 });
 
 // logout user
@@ -768,7 +782,6 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
         _id: userId,
       },
     },
-    // calculate subscribers
     {
       $lookup: {
         from: "subscriptions",
@@ -777,6 +790,7 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
         as: "subscribers",
       },
     },
+    // calculate videos
     {
       $lookup: {
         from: "videos",
@@ -789,8 +803,8 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
     {
       $lookup: {
         from: "likes",
-        localField: "videos._id",
-        foreignField: "video",
+        localField: "_id",
+        foreignField: "likedBy",
         as: "likes",
       },
     },
@@ -798,13 +812,36 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
     {
       $lookup: {
         from: "dislikes",
-        localField: "videos._id",
-        foreignField: "video",
+        localField: "_id",
+        foreignField: "likedBy",
         as: "dislikes",
       },
     },
+    // calculate comments
+    {
+      $lookup: {
+        from: "comments",
+        localField: "_id",
+        foreignField: "owner",
+        as: "comments",
+      },
+    },
+    // calculates tweets
+    {
+      $lookup: {
+        from: "tweets",
+        localField: "_id",
+        foreignField: "owner",
+        as: "tweets",
+      },
+    },
+    // calculate average views
+
     {
       $addFields: {
+        averageViews: { $avg: "$videos.views" },
+        commentsCount: { $size: "$comments" },
+        tweetsCount: { $size: "$tweets" },
         subscribersCount: { $size: "$subscribers" },
         videosCount: {
           $size: "$videos",
@@ -816,17 +853,21 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
         dislikesCount: { $size: "$dislikes" },
       },
     },
+
     {
       $project: {
+        _id: 0,
+        averageViews: 1,
         videosCount: 1,
         subscribersCount: 1,
         viewsCount: 1,
         likesCount: 1,
         dislikesCount: 1,
+        commentsCount: 1,
+        tweetsCount: 1,
       },
     },
   ]);
-  // console.log(" channelStats:", channelStats)
 
   if (!channelStats?.length) {
     throw new ApiError(404, "Channel does not exist");
@@ -838,6 +879,7 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
     channelStats[0],
     "User profile stats found"
   );
+  // console.log("🚀 ~ channelStats[0]:", channelStats[0])
 
   await setCache(req, response, cacheKey);
   return res.status(200).json(response);

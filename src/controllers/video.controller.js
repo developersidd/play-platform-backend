@@ -76,11 +76,11 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
   // Check cache
   const cacheKey = generateCacheKey("all-videos", req.query);
-  const cachedRes = await checkCache(req, cacheKey);
-   if (cachedRes) {
-    return res.status(200).json(cachedRes);
-   }
-  
+  // const cachedRes = await checkCache(req, cacheKey);
+
+  // if (cachedRes) {
+  //  return res.status(200).json(cachedRes);
+  // }
 
   // if expandQuery is true, then we will add likes and dislikes count to the query
   let expandQueryAggregation = [];
@@ -274,13 +274,14 @@ const getVideoById = asyncHandler(async (req, res) => {
 // API endpoint for viewing a video
 const updateVideoCount = asyncHandler(async (req, res) => {
   const { id } = req.params;
+  const userId = req?.user?._id || "guest";
   const userIp = req.ip; // You could also use session/cookie if logged-in users
   console.log("userIp:", userIp);
   const video = await Video.findById(id);
   if (!video) {
     throw new ApiError(404, "Video not found");
   }
-  const viewAdded = await addViewIfNotExists(req, id, userIp);
+  const viewAdded = await addViewIfNotExists(req, id, userIp, );
   console.log("viewAdded:", viewAdded);
   if (viewAdded) {
     return res.status(200).json(new ApiResponse(200, "View added", {}));
@@ -503,6 +504,7 @@ const deleteManyVideos = asyncHandler(async (req, res) => {
   await revalidateRelatedCaches(req, "all-videos");
   // revalidate all videos cache
   res.status(200).json(new ApiResponse(200, {}, "Videos deleted"));
+
   res.on("finish", async () => {
     console.log("Cleaning up started ");
     await cleanUpReferences(videoIds);

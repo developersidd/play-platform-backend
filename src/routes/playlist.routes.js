@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   createPlaylist,
+  deleteManyPlaylist,
   deletePlaylist,
   getPlaylistById,
   getUserCollections,
@@ -13,9 +14,11 @@ import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const router = Router();
 
-router.route("/").post(verifyJWT, createPlaylist);
-
 router.get("/collections", verifyJWT, getUserCollections);
+router
+  .route("/")
+  .post(verifyJWT, createPlaylist)
+  .delete(verifyJWT, deleteManyPlaylist);
 router
   .route("/:playlistId")
   .get(getPlaylistById)
@@ -26,6 +29,9 @@ router
   .route("/:playlistId/v/:videoId/toggle")
   .patch(verifyJWT, toggleVideoInPlaylist);
 
-router.route("/user/:username").get(getUserPlaylists);
+// Get user collections
+
+// Get playlists by username
+router.get("/user/:username", getUserPlaylists);
 
 export default router;
