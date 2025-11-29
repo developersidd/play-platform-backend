@@ -177,7 +177,7 @@ const loginUser = asyncHandler(async (req, res) => {
     "User logged In successfully"
   );
   // add cookies in dev mode
-  if (process.env.NODE_ENV === "development") {
+  if (!process.env.NODE_ENV === "development") {
     res
       .cookie("accessToken", accessToken, {
         httpOnly: true,
@@ -200,7 +200,7 @@ const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     userId,
     {
-      $unset: { refreshToken: 1 }, // this removes the field from document
+      $unset: { refreshToken: 1 }
     },
     {
       new: true,
@@ -280,7 +280,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
     req.cookies?.refreshToken || req.body?.refreshToken;
   const incomingAccessToken = req.cookies?.accessToken || req.body?.accessToken;
-  console.log(" req.body:", req.body);
+  // console.log(" req.body:", req.body);
   console.log("incomingRefreshToken:", incomingRefreshToken);
   if (!incomingRefreshToken) {
     throw new ApiError(401, "Unauthorized request");
@@ -298,7 +298,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
   }
   console.log(" user?.refreshToken:", user?.refreshToken);
   if (user?.refreshToken !== incomingRefreshToken) {
-    throw new ApiError(401, "Refresh token in expired or used");
+    throw new ApiError(401, "Refresh token in expired or used didn't matched");
   }
 
   const { accessToken, refreshToken } =
@@ -319,11 +319,11 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       new: true,
     }
   );
-  user.refreshToken = refreshToken;
-  await user.save({
-    validateBeforeSave: false,
-  });
-  console.log(" loginHistory in refreshToken:", loginHistory);
+  // user.refreshToken = refreshToken;
+  // await user.save({
+  //  validateBeforeSave: false,
+  // });
+  //console.log(" loginHistory in refreshToken:", loginHistory);
   return res
     .status(200)
     .json(
@@ -773,7 +773,6 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
   const cachedResponse = await checkCache(req, cacheKey);
   await revalidateCache(req, cacheKey);
   if (cachedResponse) {
-    console.log("Cache hit for user profile stats");
     return res.status(200).json(cachedResponse);
   }
   const channelStats = await User.aggregate([
@@ -803,8 +802,8 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
     {
       $lookup: {
         from: "likes",
-        localField: "_id",
-        foreignField: "likedBy",
+        localField: "videos._id",
+        foreignField: "video",
         as: "likes",
       },
     },
@@ -812,8 +811,8 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
     {
       $lookup: {
         from: "dislikes",
-        localField: "_id",
-        foreignField: "likedBy",
+        localField: "videos._id",
+        foreignField: "video",
         as: "dislikes",
       },
     },
@@ -821,8 +820,8 @@ const getUserChannelStats = asyncHandler(async (req, res) => {
     {
       $lookup: {
         from: "comments",
-        localField: "_id",
-        foreignField: "owner",
+        localField: "videos._id",
+        foreignField: "video",
         as: "comments",
       },
     },
@@ -1080,5 +1079,6 @@ export {
   updateAccountDetails,
   updateAvatar,
   updateCoverImage,
-  verifyEmail,
+  verifyEmail
 };
+

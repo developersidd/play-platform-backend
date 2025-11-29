@@ -3,7 +3,9 @@ import DisLike from "../models/dislike.model.js";
 import Like from "../models/like.model.js";
 import Playlist from "../models/playlist.model.js";
 import User from "../models/user.model.js";
+import Video from "../models/video.model.js";
 import WatchLater from "../models/watchLater.model.js";
+import { checkCache, generateCacheKey, revalidateCache, setCache } from "../utils/redis.util.js";
 
 const addToWatchHistory = async (userId, videoId) => {
   try {
@@ -70,4 +72,26 @@ async function cleanUpReferences(videoIds) {
   }
 }
 
-export { addToWatchHistory, cleanUpReferences };
+// Check and add views in Redis
+async function addViewIfNotExists(req, videoId, userIp) {
+  const redisKey = `video:${videoId}:viewedBy:${userIp}`;
+  const videoCacheKey = generateCacheKey("video", videoId);
+
+  // Check if the user (IP) has already viewed the video within the last 24 hours
+  const viewExists = await checkCache(req, redisKey);
+  // console.log("viewExists:", viewExists)
+
+  if (!viewExists) {
+    // Set a key with an expiry of 24 hours (86400 seconds) in Redis
+    await setCache(req, true, redisKey, 86400);
+
+    // Increment the view count in MongoDB
+    await Video.findByIdAndUpdate(videoId, { $inc: { views: 1 } });
+    await revalidateCache(req, videoCacheKey); // Revalidate the video cache
+    return true; // View added
+  }
+
+  return false; // View not added
+}
+
+export { addToWatchHistory, cleanUpReferences, addViewIfNotExists };

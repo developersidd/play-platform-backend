@@ -5,7 +5,12 @@ import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import { createMongoId } from "../utils/mongodb.util.js";
-import { checkCache, generateCacheKey, revalidateCache, setCache } from "../utils/redis.util.js";
+import {
+  checkCache,
+  generateCacheKey,
+  revalidateCache,
+  setCache,
+} from "../utils/redis.util.js";
 
 // get subscription growth analytics
 const getMonthlySubscriptionGrowth = asyncHandler(async (req, res) => {
@@ -144,7 +149,7 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
 
   const cacheKey = generateCacheKey("subscribers-list", req.query);
   // Check cache
-
+  await revalidateCache(req, cacheKey);
   if (!expand) {
     // check if the response is cached
     const cachedRes = await checkCache(req, cacheKey);
@@ -356,14 +361,6 @@ const getSubscribedChannels = asyncHandler(async (req, res) => {
 // check subscription status
 const checkSubscriptionStatus = asyncHandler(async (req, res) => {
   const { channelId } = req.params;
-
-  const { redisClient } = req.app.locals || {};
-  const cachedData = await redisClient.get("check-subscription-status");
-
-  if (cachedData) {
-    console.log("from cache");
-    return res.status(200).json(JSON.parse(cachedData));
-  }
   if (!isValidObjectId(channelId)) {
     throw new ApiError(400, "Invalid channel id");
   }
@@ -375,11 +372,6 @@ const checkSubscriptionStatus = asyncHandler(async (req, res) => {
     200,
     { isSubscribed: !!data?._id },
     "Subscription status"
-  );
-  await redisClient.setEx(
-    "check-subscription-status",
-    3600,
-    JSON.stringify(response)
   );
 
   return res.status(200).json(response);

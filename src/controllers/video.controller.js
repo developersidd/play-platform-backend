@@ -1,6 +1,7 @@
 import { isValidObjectId } from "mongoose";
 import {
   addToWatchHistory,
+  addViewIfNotExists,
   cleanUpReferences,
 } from "../helpers/video.helper.js";
 import Like from "../models/like.model.js";
@@ -15,7 +16,6 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import formatDuration from "../utils/formatDuration.js";
 import { createMongoId } from "../utils/mongodb.util.js";
 import {
-  addViewIfNotExists,
   checkCache,
   generateCacheKey,
   revalidateCache,
@@ -194,6 +194,7 @@ const getVideoById = asyncHandler(async (req, res) => {
     await addToWatchHistory(mongoLoggedInUserId, videoId);
   }
   const cachedData = await checkCache(req, cacheKey);
+  await revalidateCache(req, cacheKey);
   if (cachedData) {
     return res.status(200).json(cachedData);
   }
@@ -271,24 +272,20 @@ const getVideoById = asyncHandler(async (req, res) => {
   return res.status(200).json(response);
 });
 
-// API endpoint for viewing a video
 const updateVideoCount = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const userId = req?.user?._id || "guest";
   const userIp = req.ip; // You could also use session/cookie if logged-in users
-  console.log("userIp:", userIp);
   const video = await Video.findById(id);
   if (!video) {
     throw new ApiError(404, "Video not found");
   }
-  const viewAdded = await addViewIfNotExists(req, id, userIp, );
+  const viewAdded = await addViewIfNotExists(req, id, userIp);
   console.log("viewAdded:", viewAdded);
   if (viewAdded) {
     return res.status(200).json(new ApiResponse(200, "View added", {}));
   }
   return res.status(200).json(409, "View already exists", {});
 });
-
 // Update video by id
 const updateVideoById = asyncHandler(async (req, res) => {
   const { title, description } = req.body;

@@ -1,5 +1,3 @@
-import Video from "../models/video.model.js";
-
 //  generate cache key
 const generateCacheKey = (resource, ...props) =>
   `app:${resource}:${JSON.stringify(...props)}`;
@@ -40,34 +38,7 @@ const revalidateRelatedCaches = async (req, prefixKey, ...props) => {
   }
 };
 
-// Check and add views in Redis
-async function addViewIfNotExists(req, videoId, userIp, userId) {
-  const redisKey = `video:${videoId}:viewedBy:${userIp}`;
-  const videoCacheKey = generateCacheKey("video", videoId);
-
-  // Check if the user (IP) has already viewed the video within the last 24 hours
-  const viewExists = await checkCache(req, redisKey);
-  // console.log("viewExists:", viewExists)
-
-  if (!viewExists) {
-    // Set a key with an expiry of 24 hours (86400 seconds) in Redis
-    await setCache(req, true, redisKey, 86400);
-
-    // Add or update the view record
-    await Video.findByIdAndUpdate(
-      videoId,
-      { $set: { video: videoId, user: userId, date: Date.now() } },
-      { upsert: true }
-    );
-    await revalidateCache(req, videoCacheKey); // Revalidate the video cache
-    return true; // View added
-  }
-
-  return false; // View not added
-}
-
 export {
-  addViewIfNotExists,
   checkCache,
   generateCacheKey,
   revalidateCache,
