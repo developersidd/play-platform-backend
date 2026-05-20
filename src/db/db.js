@@ -1,10 +1,12 @@
+import dns from "dns";
 import mongoose from "mongoose";
-import { DB_NAME } from "../constant.js";
+
+dns.setServers(["8.8.8.8", "8.8.4.4"]); // Fix for ISP DNS blocking MongoDB SRV lookups
 
 const connectDB = async () => {
   try {
     const connectionInstance = await mongoose.connect(
-      `${process.env.MONGODB_URI}/${DB_NAME}`
+      `${process.env.MONGODB_URI}`
     );
     console.log(
       `MongoDB Connected !! DB HOST: ${connectionInstance.connection.host}`

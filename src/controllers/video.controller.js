@@ -194,8 +194,10 @@ const getVideoById = asyncHandler(async (req, res) => {
     await addToWatchHistory(mongoLoggedInUserId, videoId);
   }
   const cachedData = await checkCache(req, cacheKey);
+  console.log("🚀 ~ cachedData:", cachedData)
   await revalidateCache(req, cacheKey);
   if (cachedData) {
+    console.log("Serving")
     return res.status(200).json(cachedData);
   }
 

@@ -1,40 +1,61 @@
-//  generate cache key
+// Helper to safely get client
+const getClient = (req) => req?.app?.locals?.redisClient ?? null;
+
+// Generate cache key
 const generateCacheKey = (resource, ...props) =>
   `app:${resource}:${JSON.stringify(...props)}`;
 
-// check cache
+// check cache 
 const checkCache = async (req, cacheKey) => {
-  const { redisClient } = req.app.locals || {};
-  const cachedData = await redisClient.get(cacheKey);
-  if (cachedData) {
-    // console.log("Cache hit");
-    return JSON.parse(cachedData);
+  const client = getClient(req);
+  if (!client) return false; 
+
+  try {
+    const cachedData = await client.get(cacheKey);
+    return cachedData ? JSON.parse(cachedData) : false;
+  } catch (err) {
+    console.warn("Cache read failed:", err.message);
+    return false;
   }
-  return false;
 };
 
 // default duration is 1 hour
 const setCache = async (req, data, cacheKey, duration = 3600) => {
-  const { redisClient } = req.app.locals || {};
-  await redisClient.setEx(cacheKey, duration, JSON.stringify(data));
+  const client = getClient(req);
+  if (!client) return;
+
+  try {
+    await client.setEx(cacheKey, duration, JSON.stringify(data));
+  } catch (err) {
+    console.warn("Cache write failed:", err.message);
+  }
 };
 
-// revalidate cache
+// revalidate single cache key
 const revalidateCache = async (req, cacheKey) => {
-  const { redisClient } = req.app.locals || {};
-  await redisClient.del(cacheKey);
+  const client = getClient(req);
+  if (!client) return;
+
+  try {
+    await client.del(cacheKey);
+  } catch (err) {
+    console.warn("Cache delete failed:", err.message);
+  }
 };
 
-// revalidate related caches
+// revalidate related caches by pattern
 const revalidateRelatedCaches = async (req, prefixKey, ...props) => {
-  const { redisClient } = req.app.locals || {};
-  // Delete all related cache keys
-  const videoCachePattern = `app:${prefixKey}:${JSON.stringify(...props)}:*`;
-  const keys = await redisClient.keys(videoCachePattern);
-  // console.log("rvlad keys:", keys);
-  if (keys.length > 0) {
-    // console.log("Deleting related caches");
-    await redisClient.del(...keys); // Delete all related caches
+  const client = getClient(req);
+  if (!client) return;
+
+  try {
+    const pattern = `app:${prefixKey}:${JSON.stringify(...props)}:*`;
+    const keys = await client.keys(pattern);
+    if (keys.length > 0) {
+      await client.del(keys);
+    }
+  } catch (err) {
+    console.warn("Cache pattern-delete failed:", err.message);
   }
 };
 

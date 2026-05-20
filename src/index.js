@@ -1,7 +1,8 @@
 // Dependencies
 import dotenv from "dotenv";
 import { app, server } from "./app.js";
-import connectDB from "./db/index.js";
+import connectDB from "./db/db.js";
+import initRedis from "./services/redis.services.js";
 import swaggerDocs from "./utils/swagger.js";
 // configure environment variables
 dotenv.config({ path: "./.env" });
@@ -11,12 +12,14 @@ const { PORT } = process.env;
 
 // connect to DB and start server
 connectDB()
-  .then(() => {
+  .then(async () => {
     // check if app is ready to run
     app.on("error", (error) => {
       console.log("Application isn't ready to run");
       throw error;
     });
+    // initialize Redis client
+    await initRedis(app);
     // Swagger
     swaggerDocs(app, PORT);
     // start server

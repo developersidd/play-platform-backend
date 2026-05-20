@@ -4,7 +4,6 @@ import cors from "cors";
 import express from "express";
 import http from "http";
 import jwt from "jsonwebtoken";
-import { createClient } from "redis";
 import requestIp from "request-ip";
 import { Server } from "socket.io";
 // import Routes
@@ -26,30 +25,6 @@ import ApiError from "./utils/ApiError.js";
 // App Initialization
 const app = express();
 const server = http.createServer(app);
-// Redis Cache
-const redisClient = createClient({
-  password: process.env.REDIS_PASSWORD,
-  socket: {
-    host: process.env.REDIS_HOST,
-    port: process.env.REDIS_PORT,
-  },
-});
-
-// Redis Error Handling
-redisClient.on("error", (err) => {
-  console.error("Redis error:", err);
-});
-
-// Connect to Redis
-(async () => {
-  try {
-    const res = await redisClient.connect();
-    console.log("Connected to Redis");
-    app.locals.redisClient = res;
-  } catch (err) {
-    console.error("Could not connect to Redis:", err);
-  }
-})();
 
 // Socket.io setup
 const io = new Server(server, {
