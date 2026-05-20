@@ -200,7 +200,7 @@ const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     userId,
     {
-      $unset: { refreshToken: 1 }
+      $unset: { refreshToken: 1 },
     },
     {
       new: true,
@@ -305,7 +305,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     (await generateAuthTokens(user?._id)) || {};
   console.log("new accessToken:", accessToken);
   // update login history with new access token
-  const loginHistory = await LoginHistory.findOneAndUpdate(
+  await LoginHistory.findOneAndUpdate(
     {
       user: user?._id,
       token: incomingAccessToken,
@@ -319,11 +319,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       new: true,
     }
   );
-  // user.refreshToken = refreshToken;
-  // await user.save({
-  //  validateBeforeSave: false,
-  // });
-  //console.log(" loginHistory in refreshToken:", loginHistory);
+  
   return res
     .status(200)
     .json(
@@ -1079,6 +1075,5 @@ export {
   updateAccountDetails,
   updateAvatar,
   updateCoverImage,
-  verifyEmail
+  verifyEmail,
 };
-

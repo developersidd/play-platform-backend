@@ -1,5 +1,7 @@
+/* eslint-disable no-param-reassign */
 import { createClient } from "redis";
 
+// eslint-disable-next-line no-unused-vars
 let redisClient = null;
 let isRedisConnected = false;
 
