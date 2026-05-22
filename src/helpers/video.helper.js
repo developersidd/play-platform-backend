@@ -5,7 +5,12 @@ import Playlist from "../models/playlist.model.js";
 import User from "../models/user.model.js";
 import Video from "../models/video.model.js";
 import WatchLater from "../models/watchLater.model.js";
-import { checkCache, generateCacheKey, revalidateCache, setCache } from "../utils/redis.util.js";
+import {
+  checkCache,
+  generateCacheKey,
+  revalidateCache,
+  setCache,
+} from "../utils/redis.util.js";
 
 const addToWatchHistory = async (userId, videoId) => {
   try {
@@ -38,7 +43,10 @@ const addToWatchHistory = async (userId, videoId) => {
 async function cleanUpReferences(videoIds) {
   try {
     const cleanupOps = [
-      WatchLater.updateMany({}, { $pull: { videos: { video: { $in: videoIds } } } }),
+      WatchLater.updateMany(
+        {},
+        { $pull: { videos: { video: { $in: videoIds } } } }
+      ),
       Playlist.updateMany(
         {},
         { $pull: { videos: { video: { $in: videoIds } } } }
@@ -74,24 +82,29 @@ async function cleanUpReferences(videoIds) {
 
 // Check and add views in Redis
 async function addViewIfNotExists(req, videoId, userIp) {
-  const redisKey = `video:${videoId}:viewedBy:${userIp}`;
-  const videoCacheKey = generateCacheKey("video", videoId);
+  try {
+    const redisKey = `video:${videoId}:viewedBy:${userIp}`;
+    const videoCacheKey = generateCacheKey("video", videoId);
 
-  // Check if the user (IP) has already viewed the video within the last 24 hours
-  const viewExists = await checkCache(req, redisKey);
-  // console.log("viewExists:", viewExists)
+    // Check if the user (IP )has already viewed the video within the last 24 hours
+    const viewExists = await checkCache(req, redisKey);
+    // console.log("viewExists:", viewExists)
 
-  if (!viewExists) {
-    // Set a key with an expiry of 24 hours (86400 seconds) in Redis
-    await setCache(req, true, redisKey, 86400);
+    if (!viewExists) {
+      // Set a key with an expiry of 24 hours (86400 seconds) in Redis
+      await setCache(req, true, redisKey, 86400);
 
-    // Increment the view count in MongoDB
-    await Video.findByIdAndUpdate(videoId, { $inc: { views: 1 } });
-    await revalidateCache(req, videoCacheKey); // Revalidate the video cache
-    return true; // View added
+      // Increment the view count in MongoDB
+      await Video.findByIdAndUpdate(videoId, { $inc: { views: 1 } });
+      await revalidateCache(req, videoCacheKey); // Revalidate the video cache
+      return true; // View added
+    }
+
+    return false; // View not added
+  } catch (error) {
+    console.error("Error adding view:", error);
+    return false;
   }
-
-  return false; // View not added
 }
 
-export { addToWatchHistory, cleanUpReferences, addViewIfNotExists };
+export { addToWatchHistory, addViewIfNotExists, cleanUpReferences };

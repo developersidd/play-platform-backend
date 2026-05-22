@@ -19,7 +19,9 @@ connectDB()
       throw error;
     });
     // initialize Redis client
-    await initRedis(app);
+    if (process.env.NODE_ENV === "production") {
+      await initRedis(app);
+    }
     // Swagger
     swaggerDocs(app, PORT);
     // start server
