@@ -6,11 +6,16 @@ import Video from "../models/video.model.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import asyncHandler from "../utils/asyncHandler.js";
-import { checkCache, generateCacheKey, revalidateCache, setCache } from "../utils/redis.util.js";
+import {
+  checkCache,
+  generateCacheKey,
+  revalidateCache,
+  setCache,
+} from "../utils/redis.util.js";
 
 const toggleVideoDisLike = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
-  console.log("videoId:", videoId);
+  // console.log("videoId:", videoId);
   const videoCacheKey = generateCacheKey("video", videoId);
   await revalidateCache(req, videoCacheKey);
 
@@ -145,7 +150,7 @@ const getVideoDisLikes = asyncHandler(async (req, res) => {
   const dislikes = await DisLike.countDocuments({
     video: videoId,
   });
-  console.log("dislikes:", dislikes)
+  console.log("dislikes:", dislikes);
 
   const isDisliked =
     userId &&

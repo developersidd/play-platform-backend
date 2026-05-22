@@ -1,11 +1,9 @@
 // Dependencies
-import dotenv from "dotenv";
+import "./lib/env.js";
 import { app, server } from "./app.js";
 import connectDB from "./db/db.js";
 import initRedis from "./services/redis.services.js";
 import swaggerDocs from "./utils/swagger.js";
-// configure environment variables
-dotenv.config({ path: "./.env" });
 
 // configuration
 const { PORT } = process.env;

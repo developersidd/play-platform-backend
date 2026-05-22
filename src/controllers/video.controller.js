@@ -182,7 +182,7 @@ const getAllVideos = asyncHandler(async (req, res) => {
 // Get video by id
 const getVideoById = asyncHandler(async (req, res) => {
   const videoId = req.params.id;
-  console.log("videoId:", videoId);
+  // console.log("videoId:", videoId);
   const userId = req?.query?.userId || "guest";
   const mongoLoggedInUserId = createMongoId(userId);
   // Generate cache key
@@ -194,10 +194,10 @@ const getVideoById = asyncHandler(async (req, res) => {
     await addToWatchHistory(mongoLoggedInUserId, videoId);
   }
   const cachedData = await checkCache(req, cacheKey);
-  console.log("🚀 ~ cachedData:", cachedData)
+  // console.log("🚀 ~ cachedData:", cachedData)
   await revalidateCache(req, cacheKey);
   if (cachedData) {
-    console.log("Serving")
+    console.log("Serving");
     return res.status(200).json(cachedData);
   }
 
@@ -292,12 +292,21 @@ const updateVideoCount = asyncHandler(async (req, res) => {
 const updateVideoById = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
   const videoId = req.params.id;
+  
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "Invalid video Id");
   }
-  console.log(" title, description:", title, description);
+  const videoToUpdate = await Video.findById(videoId);
+  if (!videoToUpdate) {
+    throw new ApiError(404, "Video not found");
+  }
+
+    // check the owner of the video or admin
+  if (videoToUpdate.owner.toString() !== req.user._id.toString() && req.user.role?.toLowerCase() !== "admin") {
+    throw new ApiError(403, "You are not authorized to delete this video");
+  }
+  // console.log(" title, description:", title, description);
   const thumbnailLocalPath = req?.file?.path;
-  console.log(" thumbnailLocalPath:", thumbnailLocalPath);
   if (
     [title, description, thumbnailLocalPath].every(
       (value) => value?.trim() === ""
@@ -308,6 +317,7 @@ const updateVideoById = asyncHandler(async (req, res) => {
   let thumbnail = null;
   if (thumbnailLocalPath) {
     thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
+    console.log("🚀 ~ thumbnail:", thumbnail);
     if (!thumbnail?.public_id) {
       throw new ApiError(500, "Failed to update thumbnail");
     }
@@ -464,10 +474,11 @@ const deleteVideo = asyncHandler(async (req, res) => {
   if (!video) {
     throw new ApiError(404, "Video not found");
   }
-  // check the owner of the video
-  if (video.owner.toString() !== req.user._id.toString()) {
+  // check the owner of the video or admin
+  if (video.owner.toString() !== req.user._id.toString() && req.user.role?.toLowerCase() !== "admin") {
     throw new ApiError(403, "You are not authorized to delete this video");
   }
+
   const deletedVideo = await Video.findByIdAndDelete(req.params.id);
   console.log(" deletedVideo:", deletedVideo);
   if (!deletedVideo) {

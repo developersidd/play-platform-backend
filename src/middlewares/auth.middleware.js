@@ -12,7 +12,7 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
       req?.cookies?.accessToken ||
       req.header("Authorization")?.replace("Bearer ", "");
     // console.log("auth middleware accessToken:", accessToken);
-    console.log(" accessToken in middleware:", accessToken);
+    // console.log(" accessToken in middleware:", accessToken);
     if (!accessToken) {
       throw new ApiError(401, "Unauthorized access");
     }
@@ -34,10 +34,10 @@ const verifyJWT = asyncHandler(async (req, _, next) => {
         $and: [{ user: user?._id }, { token: accessToken }],
       });
     }
-//
-//    if (!loginHistory?._id) {
-//      throw new ApiError(401, "Login history not found");
-//    }
+    //
+    //    if (!loginHistory?._id) {
+    //      throw new ApiError(401, "Login history not found");
+    //    }
 
     req.user = {
       ...user?._doc,

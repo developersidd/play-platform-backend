@@ -6,8 +6,8 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
-
 const uploadOnCloudinary = async (localFilePath) => {
+  // console.log("🚀 ~ localFilePath:", localFilePath)
   try {
     if (!localFilePath) return null;
     // upload file on cloudinary
@@ -15,9 +15,10 @@ const uploadOnCloudinary = async (localFilePath) => {
       folder: "youtube-clone",
       resource_type: "auto", // jpeg, png etc
     });
-    console.log("response from cloudinary");
+    // console.log("response from cloudinary");
     return response;
   } catch (err) {
+    // console.log("🚀 ~ err:", err)
     return err;
   } finally {
     // remove the local file
